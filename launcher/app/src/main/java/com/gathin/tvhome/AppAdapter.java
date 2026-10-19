@@ -61,6 +61,10 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     }
 
     static final int TYPE_ICON = 0, TYPE_BANNER = 1, TYPE_ROUND = 2, TYPE_WIDE = 3;
+    /** Tiles per row in the TILES theme, which is also how many apps fit on its plate (the dock of that theme). */
+    static final int TILES_COLUMNS = 5;
+    /** Most apps that can be pinned in the CIRCLES theme (there is no dock, pinned apps just come first). */
+    private static final int CIRCLES_MAX_PINNED = 12;
 
     // Square dock art (res/drawable-nodpi/dock_*.png), drawn locally by tools/make_dock_icons.py and kept out of git
     // (the logos are trademarks). Looked up by name so the app builds without them; apps without art show their own icon.
@@ -119,6 +123,8 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     private final int maxDock;
     private Theme theme = Theme.DOCK;
     private int dockCount;
+    /** How many apps at the start of the list are pinned (and installed), whatever the theme. */
+    private int pinnedCount;
     /** Pinned packages in dock order, including any that are not installed right now. */
     private final List<String> pinned = new ArrayList<>();
     /** Never shown as tiles (res/values/config.xml, hidden_apps). */
@@ -185,6 +191,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         items.addAll(fresh);
         int docked = 0;
         while (docked < items.size() && pinned.contains(items.get(docked).pkg)) docked++;
+        pinnedCount = docked;
         dockCount = theme == Theme.DOCK ? Math.min(docked, maxDock) : 0;
         notifyDataSetChanged();
     }
@@ -197,6 +204,21 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     boolean isDocked(int position) {
         return position >= 0 && position < dockCount;
+    }
+
+    /** True for the pinned apps in every theme: they are the ones that can be moved. */
+    boolean isPinnedAt(int position) {
+        return position >= 0 && position < pinnedCount;
+    }
+
+    /** TILES theme: how many apps are on the plate (the first row); 0 in the other themes. */
+    int shelfCount() {
+        return theme == Theme.TILES ? Math.min(pinnedCount, TILES_COLUMNS) : 0;
+    }
+
+    /** Most apps that can be pinned in the current theme. */
+    private int pinLimit() {
+        return theme == Theme.DOCK ? maxDock : theme == Theme.TILES ? TILES_COLUMNS : CIRCLES_MAX_PINNED;
     }
 
     String pkgAt(int position) {
@@ -217,7 +239,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         if (pinned.contains(pkg)) return true;
         int installedPins = 0;
         for (Entry e : items) if (pinned.contains(e.pkg)) installedPins++;
-        if (installedPins >= maxDock) return false;
+        if (installedPins >= pinLimit()) return false;
         pinned.removeIf(p -> positionOf(p) < 0);   // forget uninstalled pins so they don't hold slots
         pinned.add(pkg);
         saveAndReload();
@@ -232,7 +254,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     /** Swaps the app with its dock neighbour on the left (-1) or right (+1), skipping pins that are not installed. */
     void move(String pkg, int delta) {
         List<String> dock = new ArrayList<>();
-        for (int i = 0; i < dockCount; i++) dock.add(items.get(i).pkg);
+        for (int i = 0; i < pinnedCount; i++) dock.add(items.get(i).pkg);
         int from = dock.indexOf(pkg), to = from + delta;
         if (from < 0 || to < 0 || to >= dock.size()) return;
         Collections.swap(dock, from, to);

@@ -94,7 +94,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private static final String PREFS = "tvhome";   // the same file the dock saves into (AppAdapter)
     private static final String PREF_WALLPAPER = "wallpaper";   // "auto", or the file name of a downloaded wallpaper
     private static final String PREF_THEME = "theme";           // Theme.key()
-    private static final int TILES_COLUMNS = 5;                 // wide tiles per row (TILES)
+    private static final int TILES_COLUMNS = AppAdapter.TILES_COLUMNS;   // wide tiles per row (TILES)
     private Theme theme = Theme.DOCK;
     private DockDecoration dockDecoration;
     private ShelfDecoration shelfDecoration;
@@ -165,7 +165,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         adapter = new AppAdapter(this, this, DOCK_MAX);
         dockDecoration = new DockDecoration(adapter, DOCK_SLOTS, density);
-        shelfDecoration = new ShelfDecoration(TILES_COLUMNS, density);
+        shelfDecoration = new ShelfDecoration(adapter, density);
         theme = Theme.from(getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_THEME, Theme.DOCK.key()));
         adapter.setTheme(theme);
         grid.setAdapter(adapter);
@@ -282,7 +282,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         } else if (theme == Theme.CIRCLES) {
             glm = new AppGridLayoutManager(this, 1, GridLayoutManager.HORIZONTAL);   // one row of round icons
         } else {
+            // TILES: the first row is the plate with the pinned apps. When fewer are pinned than the plate has room for,
+            // the last one takes the empty cells (the decoration pushes its tile back to its own cell).
             glm = new AppGridLayoutManager(this, TILES_COLUMNS);
+            glm.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
+                @Override
+                public int getSpanSize(int position) {
+                    int n = adapter.shelfCount();
+                    return n > 0 && n < TILES_COLUMNS && position == n - 1 ? TILES_COLUMNS - n + 1 : 1;
+                }
+            });
             grid.addItemDecoration(shelfDecoration);
         }
         grid.setLayoutManager(glm);
@@ -319,7 +328,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             top = 0;   // the grid itself is only as tall as the row and sits at the bottom (see below)
         } else {
             // tvOS: the first row (inside the shelf) sits low, the second one peeks in below it.
-            top = Math.max((int) (12 * density), grid.getHeight() - (int) ((175 + 44) * density));
+            top = Math.max((int) (12 * density), grid.getHeight() - (int) (2 * 175 * density) - bottom);   // the plate row and the next one, both whole
         }
         if (grid.getPaddingTop() != top || grid.getPaddingLeft() != side || grid.getPaddingBottom() != bottom) {
             grid.setPadding(side, top, side, bottom);
@@ -346,7 +355,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         hideHero();
         hideGlass();
         if (theme == Theme.CIRCLES) showCirclesHero(position);
-        if (theme == Theme.TILES) shelfDecoration.setFocusedRow(position / TILES_COLUMNS);
         // Scrolling is done here, at once (no animation), and only here: the grid does no scrolling of its own (see
         // AppGridLayoutManager). The rule is the same for every card of a row, so moving sideways never moves the grid
         // and going back to a row puts it where it was. The list clamps the result at both ends.
@@ -360,8 +368,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 return;
             }
             int dy;
-            if (theme == Theme.TILES) {
-                dy = item.getTop() - grid.getPaddingTop();                       // the focused row's top on the shelf line
+            if (theme == Theme.TILES) {   // both of the first rows are on screen: scroll only for rows further down
+                int limit = grid.getHeight() - grid.getPaddingBottom();
+                dy = item.getBottom() > limit ? item.getBottom() - limit
+                        : item.getTop() < grid.getPaddingTop() ? item.getTop() - grid.getPaddingTop() : 0;
             } else {   // DOCK: the focused row's bottom on the bottom margin
                 dy = item.getBottom() - (grid.getHeight() - grid.getPaddingBottom());
             }
@@ -511,7 +521,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     public void onTileMenu(int position, View card) {
         String pkg = adapter.pkgAt(position);
         boolean docked = adapter.isDocked(position);
-        boolean dockTheme = theme == Theme.DOCK;
+        boolean pinsToFront = theme == Theme.CIRCLES;   // CIRCLES has no dock: pinning just moves the app to the start
         View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
         LinearLayout rows = panel.findViewById(R.id.rows);
         int width = (int) (220 * density);
@@ -521,17 +531,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         popup.setAnimationStyle(0);
         popup.setElevation(0f);
 
-        // Only dock apps can be reordered (that is what pinning is for); the other apps stay alphabetical.
-        if (docked) addInputRow(rows, popup, R.drawable.ic_move, getString(R.string.move), -1, () -> startMove(pkg));
+        // Only pinned apps can be reordered (that is what pinning is for); the other apps stay alphabetical.
+        if (adapter.isPinnedAt(position)) addInputRow(rows, popup, R.drawable.ic_move, getString(R.string.move), -1, () -> startMove(pkg));
         if (adapter.isPinned(pkg)) {
             addInputRow(rows, popup, R.drawable.ic_unpin,
-                    getString(dockTheme ? R.string.unpin_from_dock : R.string.unpin_from_front), -1, () -> {
+                    getString(pinsToFront ? R.string.unpin_from_front : R.string.unpin_from_dock), -1, () -> {
                 adapter.unpin(pkg);
                 focusAfterLayout(pkg);
             });
         } else {
             addInputRow(rows, popup, R.drawable.ic_pin,
-                    getString(dockTheme ? R.string.pin_to_dock : R.string.pin_to_front), -1, () -> {
+                    getString(pinsToFront ? R.string.pin_to_front : R.string.pin_to_dock), -1, () -> {
                 if (adapter.pin(pkg)) focusAfterLayout(pkg);
                 else Toast.makeText(this, R.string.dock_full, Toast.LENGTH_SHORT).show();
             });
@@ -564,7 +574,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     // ---- moving apps -----------------------------------------------------------------------------
-    // Move is only for dock apps: from the app's menu (hold OK), Left/Right slide it along the dock; OK or Back finishes.
+    // Move is for pinned apps (the dock, the plate or the start of the row): from the app's menu (hold OK), Left/Right slide
+    // it along them; OK or Back finishes.
 
     private String movingPkg;
 
@@ -596,7 +607,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 return true;
             case KeyEvent.KEYCODE_DPAD_LEFT:
             case KeyEvent.KEYCODE_DPAD_RIGHT:
-                if (adapter.isDocked(position)) {
+                if (adapter.isPinnedAt(position)) {
                     adapter.move(pkg, keyCode == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1);
                     focusAfterLayout(pkg);
                 }

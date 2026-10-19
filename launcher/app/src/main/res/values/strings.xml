@@ -25,7 +25,7 @@
     <string name="unpin_from_front">Quitar de las fijadas</string>
     <string name="app_info">Información de la app</string>
     <string name="move">Mover</string>
-    <string name="move_hint">Usa las flechas izquierda y derecha para moverla por el dock. Presiona OK al terminar.</string>
+    <string name="move_hint">Usa las flechas izquierda y derecha para moverla entre las fijadas. Presiona OK al terminar.</string>
     <string name="dock_full">El dock está lleno. Quita una app primero.</string>
     <string name="cant_open">No se puede abrir %1$s</string>
     <string name="not_available">No disponible en este TV</string>

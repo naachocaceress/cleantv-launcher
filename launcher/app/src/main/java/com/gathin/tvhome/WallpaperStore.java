@@ -28,7 +28,9 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Wallpapers downloaded on demand. The catalog (assets/wallpapers.json, built by tools/make_wallpaper_catalog.py,
@@ -50,7 +52,8 @@ final class WallpaperStore {
 
     private final Context ctx;
     private final File dir;
-    private final ExecutorService io = Executors.newSingleThreadExecutor();
+    // One download at a time, and the thread goes away after 5 s idle instead of staying alive for ever.
+    private final ExecutorService io = new ThreadPoolExecutor(0, 1, 5, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
     private final Handler main = new Handler(Looper.getMainLooper());
 
     WallpaperStore(Context context) {

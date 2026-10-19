@@ -133,6 +133,9 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     /** Never shown as tiles (res/values/config.xml, hidden_apps). */
     private final Set<String> hidden;
     private final List<Entry> items = new ArrayList<>();
+    /** Apps already loaded, so a reload (pinning, moving, changing theme, coming back home) does not decode their art again. */
+    private final Map<String, Entry> cache = new HashMap<>();
+    private final Map<String, Long> cacheStamp = new HashMap<>();
 
     AppAdapter(Context ctx, TileListener listener, int maxDock) {
         this.ctx = ctx;
@@ -195,6 +198,18 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             ComponentName mainComponent = main != null ? main.getComponent() : null;
             if (mainComponent != null && !mainComponent.getClassName().equals(ri.activityInfo.name)) continue;
             if (!seen.add(pkg)) continue;
+            long stamp = 0;   // changes when the app is updated, which is when its icon or banner may change
+            try {
+                stamp = pm.getPackageInfo(pkg, 0).lastUpdateTime;
+            } catch (PackageManager.NameNotFoundException ignored) {
+            }
+            Entry known = cache.get(pkg);
+            Long knownStamp = cacheStamp.get(pkg);
+            if (known != null && knownStamp != null && knownStamp == stamp
+                    && known.component.getClassName().equals(ri.activityInfo.name)) {
+                fresh.add(known);
+                continue;
+            }
             Drawable icon = ri.loadIcon(pm);
             Drawable banner = ri.activityInfo.loadBanner(pm);
             if (banner == null && ri.activityInfo.applicationInfo != null) {
@@ -204,9 +219,14 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             String glyphName = GLYPHS.get(pkg);
             int glyph = glyphName == null ? 0
                     : ctx.getResources().getIdentifier(glyphName, "drawable", ctx.getPackageName());
-            fresh.add(new Entry(label, new ComponentName(pkg, ri.activityInfo.name),
-                    glyph != 0 ? ctx.getDrawable(glyph) : null, icon, banner));
+            Entry entry = new Entry(label, new ComponentName(pkg, ri.activityInfo.name),
+                    glyph != 0 ? ctx.getDrawable(glyph) : null, icon, banner);
+            cache.put(pkg, entry);
+            cacheStamp.put(pkg, stamp);
+            fresh.add(entry);
         }
+        cache.keySet().retainAll(seen);   // forget apps that were uninstalled
+        cacheStamp.keySet().retainAll(seen);
         Collections.sort(fresh, (a, b) -> {
             int fa = pinned.indexOf(a.pkg), fb = pinned.indexOf(b.pkg);
             if (fa >= 0 || fb >= 0) {

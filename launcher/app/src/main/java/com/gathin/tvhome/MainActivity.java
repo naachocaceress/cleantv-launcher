@@ -819,7 +819,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (key.equals(bgKey)) return;   // already showing it: don't decode the photo again
         Drawable next = null;
         if (key.startsWith("file:")) {
-            Bitmap bm = BitmapFactory.decodeFile(file.getPath());
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inPreferredConfig = Bitmap.Config.RGB_565;   // a photo has no transparency: half the memory of 32 bit
+            Bitmap bm = BitmapFactory.decodeFile(file.getPath(), opts);
             if (bm != null) {
                 next = new BitmapDrawable(getResources(), bm);
             } else {   // unreadable file: fall back to the time-of-day photo

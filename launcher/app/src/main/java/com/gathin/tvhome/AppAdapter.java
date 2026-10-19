@@ -16,7 +16,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
-import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -46,8 +45,14 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         /** Called for D-pad Up/Down on a tile. Return true when handled. */
         boolean onTileVerticalKey(int position, int keyCode);
 
-        /** Hold OK or press Menu on a tile: pin, unpin, reorder, app info. */
+        /** Hold OK or press Menu on a tile: move, pin, unpin, app info. */
         void onTileMenu(int position, View card);
+
+        /** True while an app is being moved: the tiles then hand every key to {@link #onMoveKey}. */
+        boolean isMoving();
+
+        /** A key pressed on a tile while moving. Return true when handled (it always should be). */
+        boolean onMoveKey(int position, int keyCode);
     }
 
     // Square dock art (res/drawable-nodpi/dock_*.png), drawn locally by tools/make_dock_icons.py and kept out of git
@@ -97,10 +102,13 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     private final TileListener listener;
     private static final String PREFS = "tvhome";
     private static final String PREF_DOCK = "dock";
+    private static final String PREF_ORDER = "order";
     private final int maxDock;
     private int dockCount;
     /** Pinned packages in dock order, including any that are not installed right now. */
     private final List<String> pinned = new ArrayList<>();
+    /** The grid's order as the user left it (apps not listed follow alphabetically). */
+    private final List<String> order = new ArrayList<>();
     /** Never shown as tiles (res/values/config.xml, hidden_apps). */
     private final Set<String> hidden;
     private final List<Entry> items = new ArrayList<>();
@@ -113,6 +121,8 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         pinned.addAll(saved != null
                 ? (saved.isEmpty() ? Collections.emptyList() : Arrays.asList(saved.split(",")))
                 : Arrays.asList(ctx.getResources().getStringArray(R.array.dock_apps)));
+        String savedOrder = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(PREF_ORDER, "");
+        if (!savedOrder.isEmpty()) order.addAll(Arrays.asList(savedOrder.split(",")));
         this.hidden = new HashSet<>(Arrays.asList(ctx.getResources().getStringArray(R.array.hidden_apps)));
     }
 
@@ -145,6 +155,12 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 if (fa < 0) return 1;
                 if (fb < 0) return -1;
                 return Integer.compare(fa, fb);
+            }
+            int oa = order.indexOf(a.pkg), ob = order.indexOf(b.pkg);
+            if (oa >= 0 || ob >= 0) {
+                if (oa < 0) return 1;
+                if (ob < 0) return -1;
+                return Integer.compare(oa, ob);
             }
             return a.label.compareToIgnoreCase(b.label);
         });
@@ -185,22 +201,50 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         return true;
     }
 
+    /** Takes the app off the dock; it lands first in the grid. */
     void unpin(String pkg) {
         pinned.remove(pkg);
+        order.remove(pkg);
+        order.add(0, pkg);
         saveAndReload();
     }
 
-    /** Swaps the app with its dock neighbour on the left (-1) or right (+1). */
+    /** Swaps the app with its dock neighbour on the left (-1) or right (+1), skipping pins that are not installed. */
     void move(String pkg, int delta) {
-        int from = pinned.indexOf(pkg), to = from + delta;
-        if (from < 0 || to < 0 || to >= pinned.size()) return;
-        Collections.swap(pinned, from, to);
+        List<String> dock = new ArrayList<>();
+        for (int i = 0; i < dockCount; i++) dock.add(items.get(i).pkg);
+        int from = dock.indexOf(pkg), to = from + delta;
+        if (from < 0 || to < 0 || to >= dock.size()) return;
+        Collections.swap(dock, from, to);
+        List<String> notInstalled = new ArrayList<>();
+        for (String p : pinned) if (!dock.contains(p)) notInstalled.add(p);
+        pinned.clear();
+        pinned.addAll(dock);
+        pinned.addAll(notInstalled);
+        saveAndReload();
+    }
+
+    /**
+     * Moves a grid app by delta places (-1/+1 sideways, -/+ columns for a row up/down); the others shift over. The
+     * whole visible grid order is saved, so it stays where the user put it.
+     */
+    void moveInGrid(String pkg, int delta) {
+        List<String> grid = new ArrayList<>();
+        for (int i = dockCount; i < items.size(); i++) grid.add(items.get(i).pkg);
+        int from = grid.indexOf(pkg);
+        if (from < 0) return;
+        int to = Math.max(0, Math.min(grid.size() - 1, from + delta));
+        if (to == from) return;
+        grid.add(to, grid.remove(from));
+        order.clear();
+        order.addAll(grid);
         saveAndReload();
     }
 
     private void saveAndReload() {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                .putString(PREF_DOCK, String.join(",", pinned)).apply();
+                .putString(PREF_DOCK, String.join(",", pinned))
+                .putString(PREF_ORDER, String.join(",", order)).apply();
         reload();
     }
 
@@ -342,6 +386,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
                 int pos = getBindingAdapterPosition();
                 if (listener == null || pos == RecyclerView.NO_POSITION) return false;
+                if (listener.isMoving()) return listener.onMoveKey(pos, keyCode);
                 if (keyCode == KeyEvent.KEYCODE_MENU) {
                     listener.onTileMenu(pos, view);
                     return true;
@@ -355,15 +400,11 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 boolean inDock = owner.isDocked(getBindingAdapterPosition());
                 float s = focused ? FOCUS_SCALE : 1.0f;
                 if (!inDock) {
-                    // Plain ease-out, no overshoot: grid tiles used to pop with a bounce when focused.
-                    view.animate().scaleX(s).scaleY(s)
-                            .setDuration(focused ? 140 : 100)
-                            .setInterpolator(new DecelerateInterpolator())
-                            .start();
+                    view.setScaleX(s);   // no transitions anywhere: focus changes show at once
+                    view.setScaleY(s);
                 }
-                name.animate().alpha(focused ? 1f : 0f)
-                        .translationY(focused ? density * 4f : -density * 6f)
-                        .setDuration(220).start();
+                name.setAlpha(focused ? 1f : 0f);
+                name.setTranslationY(focused ? density * 4f : 0f);
                 int pos = getBindingAdapterPosition();
                 if (focused && listener != null && pos != RecyclerView.NO_POSITION) {
                     listener.onTileFocused(pos, view);

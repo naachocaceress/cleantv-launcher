@@ -20,9 +20,9 @@
     <string name="screensaver_label">Manhattan</string>
     <string name="pin_to_dock">Pin to Dock</string>
     <string name="unpin_from_dock">Unpin from Dock</string>
-    <string name="move_left">Move Left</string>
-    <string name="move_right">Move Right</string>
     <string name="app_info">App Info</string>
+    <string name="move">Move</string>
+    <string name="move_hint">Use the arrow keys to move it (Down/Up also moves it between the dock and the grid). Press OK when done.</string>
     <string name="dock_full">Dock is full. Unpin an app first.</string>
     <string name="wallpaper">Wallpaper</string>
     <string name="wallpaper_new">New wallpaper from the web</string>

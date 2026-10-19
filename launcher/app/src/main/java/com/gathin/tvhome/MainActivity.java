@@ -34,9 +34,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
-import android.view.animation.AnimationUtils;
 import android.view.animation.DecelerateInterpolator;
-import android.view.animation.LayoutAnimationController;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -45,9 +43,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.dynamicanimation.animation.DynamicAnimation;
-import androidx.dynamicanimation.animation.SpringAnimation;
-import androidx.dynamicanimation.animation.SpringForce;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -58,7 +53,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * tvOS style home: black, a pinned dock row, an app grid, and one glass highlight that springs between tiles.
+ * tvOS style home: a pinned dock row (magnified icons, name tooltip, glow) and an app grid below it. The dock keeps
+ * its animations; the grid has none: the highlight sits on the focused tile and focus changes and scrolling show at
+ * once.
  */
 public class MainActivity extends Activity implements AppAdapter.TileListener {
 
@@ -94,7 +91,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private static final String PREFS = "tvhome";   // the same file the dock saves into (AppAdapter)
     private static final String PREF_WALLPAPER = "wallpaper";   // "auto", or the file name of a downloaded wallpaper
     private TextView btnWifi;
-    private SpringAnimation springX, springY;
     private float glassTargetX, glassTargetY;
     private boolean glassShown;
     private int lastFocused = 0;
@@ -171,8 +167,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         grid.setHasFixedSize(true);
         grid.setItemAnimator(null);
 
-        grid.setLayoutAnimation(new LayoutAnimationController(
-                AnimationUtils.loadAnimation(this, R.anim.tile_enter), 0.06f));
         adapter = new AppAdapter(this, this, DOCK_MAX);
         grid.addItemDecoration(new DockDecoration(adapter, DOCK_SLOTS, density));
         grid.setAdapter(adapter);
@@ -193,18 +187,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
                 if (!glassShown) return;
                 glassTargetY -= dy;
-                if (springY.isRunning()) springY.animateToFinalPosition(glassTargetY);
-                else glass.setTranslationY(glassTargetY);
+                glass.setTranslationY(glassTargetY);
             }
         });
-
-        // The highlight glides to the next tile: fast and critically damped, so it never overshoots or wobbles
-        // (it used to be 260 / 0.58, a bouncy spring).
-        springX = new SpringAnimation(glass, DynamicAnimation.TRANSLATION_X);
-        springY = new SpringAnimation(glass, DynamicAnimation.TRANSLATION_Y);
-        for (SpringAnimation s : new SpringAnimation[]{springX, springY}) {
-            s.setSpring(new SpringForce().setStiffness(1200f).setDampingRatio(SpringForce.DAMPING_RATIO_NO_BOUNCY));
-        }
 
         View btnWallpaper = findViewById(R.id.btnWallpaper);
         View btnInputs = findViewById(R.id.btnInputs);
@@ -255,7 +240,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         dockDot.setAlpha(0f);
         ambient.setAlpha(0f);
         adapter.reload();
-        grid.scheduleLayoutAnimation();
         updateGreeting();
         updateBackground();
         updateWifiLabel();
@@ -312,37 +296,34 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         glassTargetX = x;
         glassTargetY = y;
-        if (!glassShown) {
-            springX.cancel();
-            springY.cancel();
-            glass.setTranslationX(x);
-            glass.setTranslationY(y);
-            glass.animate().alpha(1f).setDuration(180).start();
-            glassShown = true;
-        } else {
-            springX.animateToFinalPosition(x);
-            springY.animateToFinalPosition(y);
-        }
+        // No transitions: the highlight is simply where the focus is.
+        glass.setTranslationX(x);
+        glass.setTranslationY(y);
+        glass.setAlpha(1f);
+        glassShown = true;
         View item = (View) card.getParent();
         hideHero();
-        // Scroll just enough so the whole glass (not only the tile) is visible.
+        // Scroll just enough so the whole glass (not only the tile) is visible, at once.
         Rect want = new Rect(0, -(int) pad * 2, item.getWidth(), item.getHeight() + (int) pad);
-        grid.requestChildRectangleOnScreen(item, want, false);
+        grid.requestChildRectangleOnScreen(item, want, true);
     }
 
     // ---- top shelf -------------------------------------------------------------------------------
 
     private void onDockFocused(int position, View card) {
         hideGlass();
-        View item = (View) card.getParent();
-        int decoratedTop = item.getTop() - (int) (6 * density);
-        int dy = decoratedTop - grid.getPaddingTop();
-        if (Math.abs(dy) > 1) grid.smoothScrollBy(0, dy);
         magnifyDock(position);
-        Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
-        root.offsetDescendantRectToMyCoords(card, r);
-        r.offset(0, -dy);
-        showHero(position, r);
+        // Bring the dock row back to the bottom of the screen at once. Done after the layout pass so the grid's top
+        // padding is final (at launch it is still being set), then the name tooltip goes above the icon.
+        grid.post(() -> {
+            View item = (View) card.getParent();
+            if (item == null || !item.isAttachedToWindow() || lastFocused != position) return;
+            int dy = item.getTop() - (int) (6 * density) - grid.getPaddingTop();
+            if (Math.abs(dy) > 1) grid.scrollBy(0, dy);
+            Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
+            root.offsetDescendantRectToMyCoords(card, r);
+            showHero(position, r);
+        });
     }
 
     /** Scale dock icons by distance from the focused one; focused < 0 resets them all. */
@@ -412,7 +393,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void hideGlass() {
         if (!glassShown) return;
         glassShown = false;
-        glass.animate().alpha(0f).setDuration(160).start();
+        glass.setAlpha(0f);
     }
 
     // ---- navigation ------------------------------------------------------------------------------
@@ -476,17 +457,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         popup.setAnimationStyle(0);
         popup.setElevation(0f);
 
+        addInputRow(rows, popup, R.drawable.ic_move, getString(R.string.move), -1, () -> startMove(pkg));
         if (docked) {
             addInputRow(rows, popup, R.drawable.ic_unpin, getString(R.string.unpin_from_dock), -1, () -> {
                 adapter.unpin(pkg);
-                focusAfterLayout(pkg);
-            });
-            if (position > 0) addInputRow(rows, popup, R.drawable.ic_left, getString(R.string.move_left), -1, () -> {
-                adapter.move(pkg, -1);
-                focusAfterLayout(pkg);
-            });
-            if (position < dock - 1) addInputRow(rows, popup, R.drawable.ic_right, getString(R.string.move_right), -1, () -> {
-                adapter.move(pkg, 1);
                 focusAfterLayout(pkg);
             });
         } else {
@@ -509,12 +483,75 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         popup.setOnDismissListener(() -> {
             if (adapter.isDocked(lastFocused) && heroShown) heroName.animate().alpha(1f).setDuration(160).start();
         });
-        panel.setAlpha(0f);
-        panel.setTranslationY(8 * density);
+        if (docked) {   // the dock keeps its soft rise-in; menus over the grid just appear
+            panel.setAlpha(0f);
+            panel.setTranslationY(8 * density);
+        }
         popup.showAtLocation(root, Gravity.NO_GRAVITY, x, y);
-        panel.animate().alpha(1f).translationY(0f).setDuration(200)
-                .setInterpolator(new DecelerateInterpolator(1.6f)).start();
+        if (docked) {
+            panel.animate().alpha(1f).translationY(0f).setDuration(200)
+                    .setInterpolator(new DecelerateInterpolator(1.6f)).start();
+        }
         rows.getChildAt(0).requestFocus();
+    }
+
+    // ---- moving apps -----------------------------------------------------------------------------
+    // Move from an app's menu (hold OK), then: Left/Right reorder; in the dock Down drops the app into the grid, in the
+    // grid's first row Up pins it to the dock; OK or Back finishes.
+
+    private String movingPkg;
+
+    private void startMove(String pkg) {
+        movingPkg = pkg;
+        Toast.makeText(this, R.string.move_hint, Toast.LENGTH_LONG).show();
+        // Closing the menu hands focus to the first view on screen; give it back to the app being moved.
+        grid.postDelayed(() -> {
+            int pos = adapter.positionOf(pkg);
+            RecyclerView.ViewHolder vh = pos >= 0 ? grid.findViewHolderForAdapterPosition(pos) : null;
+            if (vh != null) vh.itemView.findViewById(R.id.card).requestFocus();
+        }, 150);
+    }
+
+    @Override
+    public boolean isMoving() {
+        return movingPkg != null;
+    }
+
+    @Override
+    public boolean onMoveKey(int position, int keyCode) {
+        String pkg = movingPkg;
+        if (pkg == null) return false;
+        boolean docked = adapter.isDocked(position);
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_DPAD_CENTER:
+            case KeyEvent.KEYCODE_ENTER:
+            case KeyEvent.KEYCODE_BACK:
+                movingPkg = null;
+                return true;
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+            case KeyEvent.KEYCODE_DPAD_RIGHT: {
+                int delta = keyCode == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1;
+                if (docked) adapter.move(pkg, delta);
+                else adapter.moveInGrid(pkg, delta);
+                break;
+            }
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+                if (docked) adapter.unpin(pkg);                      // dock -> grid
+                else adapter.moveInGrid(pkg, COLUMNS);               // one row down
+                break;
+            case KeyEvent.KEYCODE_DPAD_UP:
+                if (docked) return true;
+                if (position - adapter.dockCount() < COLUMNS) {      // first grid row -> dock
+                    if (!adapter.pin(pkg)) Toast.makeText(this, R.string.dock_full, Toast.LENGTH_SHORT).show();
+                } else {
+                    adapter.moveInGrid(pkg, -COLUMNS);               // one row up
+                }
+                break;
+            default:
+                return true;   // swallow everything else while moving
+        }
+        focusAfterLayout(pkg);
+        return true;
     }
 
     // Menu (or hold OK) on the Settings button: wallpapers.
@@ -571,18 +608,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             vh.itemView.findViewById(R.id.card).requestFocus();
             return;
         }
-        // Not laid out yet: scroll there, then focus once the scroll settles.
-        grid.addOnScrollListener(new RecyclerView.OnScrollListener() {
+        // Not laid out yet: jump there (no animated scroll), then focus once the grid has laid out.
+        grid.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
-            public void onScrollStateChanged(@NonNull RecyclerView rv, int newState) {
-                if (newState != RecyclerView.SCROLL_STATE_IDLE) return;
-                rv.removeOnScrollListener(this);
-                RecyclerView.ViewHolder h = rv.findViewHolderForAdapterPosition(pos);
-                View target = h != null ? h.itemView.findViewById(R.id.card) : rv.getChildAt(0);
+            public void onGlobalLayout() {
+                grid.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                RecyclerView.ViewHolder h = grid.findViewHolderForAdapterPosition(pos);
+                View target = h != null ? h.itemView.findViewById(R.id.card) : grid.getChildAt(0);
                 if (target != null) target.requestFocus();
             }
         });
-        grid.smoothScrollToPosition(pos);
+        grid.scrollToPosition(pos);
     }
 
     // ---- top bar ---------------------------------------------------------------------------------
@@ -621,23 +657,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void updateBackground() {
         String choice = wallpaperChoice();
         File file = "auto".equals(choice) ? null : new File(wallpapers.dir(), choice);
+        String key = file != null && file.exists() ? "file:" + choice : "res:" + BACKGROUNDS[dayPart()];
+        if (key.equals(bgKey)) return;   // already showing it: don't decode the photo again
         Drawable next = null;
-        String key = null;
-        if (file != null && file.exists()) {
+        if (key.startsWith("file:")) {
             Bitmap bm = BitmapFactory.decodeFile(file.getPath());
             if (bm != null) {
                 next = new BitmapDrawable(getResources(), bm);
-                key = "file:" + choice;
+            } else {   // unreadable file: fall back to the time-of-day photo
+                key = "res:" + BACKGROUNDS[dayPart()];
+                if (key.equals(bgKey)) return;
             }
         }
-        if (next == null) {
-            int res = BACKGROUNDS[dayPart()];
-            key = "res:" + res;
-            if (key.equals(bgKey)) return;
-            next = getDrawable(res);
-        } else if (key.equals(bgKey)) {
-            return;
-        }
+        if (next == null) next = getDrawable(BACKGROUNDS[dayPart()]);
         boolean first = bgKey.isEmpty();
         bgKey = key;
         final Drawable shown = next;

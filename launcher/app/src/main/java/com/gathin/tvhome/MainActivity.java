@@ -499,6 +499,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         }
         focusTile(target);
+        // Focus moved by code, so Android does not play its navigation sound: play it here.
+        grid.playSoundEffect(keyCode == KeyEvent.KEYCODE_DPAD_UP ? android.view.SoundEffectConstants.NAVIGATION_UP
+                : android.view.SoundEffectConstants.NAVIGATION_DOWN);
         return true;
     }
 

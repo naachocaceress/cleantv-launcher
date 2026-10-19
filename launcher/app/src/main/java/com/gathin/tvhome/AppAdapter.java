@@ -373,6 +373,9 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 lp.height = (int) (80 * d);
                 h.card.setLayoutParams(lp);
                 boolean hasBanner = e.banner != null;
+                // Focus ring over the card, and a colour card behind apps that have no banner of their own.
+                h.card.setForeground(ctx.getDrawable(R.drawable.banner_focus));
+                h.card.setBackground(hasBanner ? ctx.getDrawable(R.drawable.banner_bg) : defaultBackground(e, 12 * d));
                 h.banner.setImageDrawable(e.banner);
                 h.banner.setVisibility(hasBanner ? View.VISIBLE : View.GONE);
                 h.icon.setImageDrawable(e.glyph != null ? e.glyph : e.icon);
@@ -401,10 +404,13 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 lp.width = (int) (196 * d);
                 lp.height = (int) (131 * d);
                 h.card.setLayoutParams(lp);
-                int[] edges = edgeColors(e);
-                GradientDrawable tile = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, edges);
-                tile.setCornerRadius(18 * d);
-                h.card.setBackground(tile);
+                if (e.glyph == null && e.banner == null) {
+                    h.card.setBackground(defaultBackground(e, 18 * d));   // no art of its own: a card in its icon's colour
+                } else {
+                    GradientDrawable tile = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, edgeColors(e));
+                    tile.setCornerRadius(18 * d);
+                    h.card.setBackground(tile);
+                }
                 boolean hasBanner = e.banner != null && e.glyph == null;
                 h.banner.setImageDrawable(e.banner);
                 h.banner.setVisibility(hasBanner ? View.VISIBLE : View.GONE);
@@ -442,6 +448,22 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             if (pos != RecyclerView.NO_POSITION) listener.onTileMenu(pos, v);
             return true;
         });
+    }
+
+    /**
+     * The card behind an app that comes without a banner or brand tile: a soft gradient in the colour of its own icon, so
+     * it does not float as a bare icon on the wallpaper.
+     */
+    private GradientDrawable defaultBackground(Entry e, float corner) {
+        if (e.ambient == 0) e.ambient = vividColor(e.glyph != null ? e.glyph : e.icon);
+        float[] hsv = new float[3];
+        Color.colorToHSV(e.ambient, hsv);
+        hsv[2] = Math.min(hsv[2], 0.62f);
+        int top = Color.HSVToColor(hsv);
+        hsv[2] *= 0.6f;
+        GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{top, Color.HSVToColor(hsv)});
+        g.setCornerRadius(corner);
+        return g;
     }
 
     /** Top and bottom colour of the tile behind a square logo: sampled from the logo's own edges so they match. */

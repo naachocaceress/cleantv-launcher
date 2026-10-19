@@ -11,6 +11,7 @@ import android.graphics.Color;
 import android.graphics.Outline;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -59,7 +60,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         boolean onMoveKey(int position, int keyCode);
     }
 
-    static final int TYPE_ICON = 0, TYPE_BANNER = 1;
+    static final int TYPE_ICON = 0, TYPE_BANNER = 1, TYPE_ROUND = 2, TYPE_WIDE = 3;
 
     // Square dock art (res/drawable-nodpi/dock_*.png), drawn locally by tools/make_dock_icons.py and kept out of git
     // (the logos are trademarks). Looked up by name so the app builds without them; apps without art show their own icon.
@@ -93,6 +94,8 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         /** The app's own TV banner (16:9), or null. */
         final Drawable banner;
         int ambient;
+        /** Colours at the top and bottom edge of the square art, for the wide tile behind it (0 = not computed yet). */
+        int edgeTop, edgeBottom;
 
         Entry(String label, ComponentName component, Drawable glyph, Drawable icon, Drawable banner) {
             this.label = label;
@@ -106,6 +109,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     static final float FOCUS_SCALE = 1.10f;          // large icons (APPLE)
     static final float BANNER_FOCUS_SCALE = 1.06f;   // banner cards
+    static final float WIDE_FOCUS_SCALE = 1.12f;     // tvOS tiles
     static final float CORNER_RATIO = 0.225f;
 
     private final Context ctx;
@@ -250,18 +254,18 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     @Override
     public int getItemViewType(int position) {
-        if (theme == Theme.APPLE) return TYPE_ICON;
-        if (theme == Theme.ANDROID) return TYPE_BANNER;
+        if (theme == Theme.APPLE) return TYPE_WIDE;
+        if (theme == Theme.ANDROID) return TYPE_ROUND;
         return isDocked(position) ? TYPE_ICON : TYPE_BANNER;
     }
 
     @NonNull
     @Override
     public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        boolean banner = viewType == TYPE_BANNER;
-        View v = LayoutInflater.from(parent.getContext())
-                .inflate(banner ? R.layout.item_banner : R.layout.item_app, parent, false);
-        return new Holder(v, listener, this, banner);
+        int layout = viewType == TYPE_BANNER ? R.layout.item_banner
+                : viewType == TYPE_WIDE ? R.layout.item_wide : R.layout.item_app;
+        View v = LayoutInflater.from(parent.getContext()).inflate(layout, parent, false);
+        return new Holder(v, listener, this, viewType);
     }
 
     @Override
@@ -271,52 +275,121 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         h.card.setScaleX(1f);
         h.card.setScaleY(1f);
         h.card.setTranslationY(0f);
+        // A round icon sits in a fixed 112dp cell of the horizontal row; every other item fills its grid cell.
+        ViewGroup.LayoutParams ilp = h.itemView.getLayoutParams();
+        ilp.width = h.type == TYPE_ROUND ? (int) (112 * d) : ViewGroup.LayoutParams.MATCH_PARENT;
+        h.itemView.setLayoutParams(ilp);
         ViewGroup.LayoutParams lp = h.card.getLayoutParams();
-        if (h.bannerType) {
-            // 16:9 like the apps' own TV banners, leaving air between the cards (cells are 160dp in DOCK, 233dp in
-            // ANDROID).
-            boolean big = theme == Theme.ANDROID;
-            lp.width = (int) ((big ? 208 : 142) * d);
-            lp.height = (int) ((big ? 117 : 80) * d);
-            h.card.setLayoutParams(lp);
-            boolean hasBanner = e.banner != null;
-            h.banner.setImageDrawable(e.banner);
-            h.banner.setVisibility(hasBanner ? View.VISIBLE : View.GONE);
-            h.icon.setImageDrawable(e.glyph != null ? e.glyph : e.icon);
-            h.icon.setVisibility(hasBanner ? View.GONE : View.VISIBLE);
-            h.label.setText(e.label);
-            h.label.setVisibility(hasBanner ? View.GONE : View.VISIBLE);
-        } else {
-            boolean apple = theme == Theme.APPLE;
-            int size = (int) ((apple ? 96 : 56) * d);
-            lp.width = size;
-            lp.height = size;
-            h.card.setLayoutParams(lp);
-            // Icon only: the dock art (or the app's own icon) fills the rounded square, nothing behind it.
-            h.card.setBackground(null);
-            h.banner.setVisibility(View.GONE);
-            h.label.setVisibility(View.GONE);
-            h.icon.setImageDrawable(e.glyph != null ? e.glyph : e.icon);
-            h.icon.setVisibility(View.VISIBLE);
-            h.shadow.setVisibility(apple ? View.GONE : View.VISIBLE);
-            h.shadow.setScaleX(1f);
-            h.shadow.setScaleY(1f);
-            h.shadow.setTranslationY(0f);
-            h.name.setText(e.label);
-            // APPLE shows the name under the focused icon; the dock uses a tooltip instead.
-            h.name.setVisibility(apple ? View.VISIBLE : View.INVISIBLE);
-            FrameLayout.LayoutParams nlp = (FrameLayout.LayoutParams) h.name.getLayoutParams();
-            nlp.width = (int) ((apple ? 140 : 100) * d);
-            nlp.topMargin = (int) ((apple ? 96 + 10 : 63) * d);
-            h.name.setLayoutParams(nlp);
-            h.name.setAlpha(0f);
-        }
-        h.card.setOnClickListener(v -> launch(e));
+        // Reset what the other item types set, since views are recycled between themes.
+        h.card.setBackground(null);
+        h.card.setForeground(null);
+        h.card.setElevation(0f);
+        h.icon.setPadding(0, 0, 0, 0);
+        h.name.setText(e.label);
+        h.name.setAlpha(0f);
+        h.name.setVisibility(View.GONE);
+        switch (h.type) {
+            case TYPE_BANNER: {
+                // 16:9 like the apps' own TV banners; the cells are 160dp wide in DOCK.
+                lp.width = (int) (142 * d);
+                lp.height = (int) (80 * d);
+                h.card.setLayoutParams(lp);
+                boolean hasBanner = e.banner != null;
+                h.banner.setImageDrawable(e.banner);
+                h.banner.setVisibility(hasBanner ? View.VISIBLE : View.GONE);
+                h.icon.setImageDrawable(e.glyph != null ? e.glyph : e.icon);
+                h.icon.setVisibility(hasBanner ? View.GONE : View.VISIBLE);
+                h.label.setText(e.label);
+                h.label.setVisibility(hasBanner ? View.GONE : View.VISIBLE);
+                break;
+            }
+            case TYPE_ROUND: {   // ANDROID: a round icon with a white ring when focused (the name is the big title)
+                int size = (int) (88 * d);
+                lp.width = size;
+                lp.height = size;
+                h.card.setLayoutParams(lp);
+                h.card.setForeground(ctx.getDrawable(R.drawable.round_focus));
+                if (e.glyph == null) h.card.setBackground(ctx.getDrawable(R.drawable.round_bg));
+                h.icon.setPadding((int) (e.glyph == null ? 20 * d : 0), (int) (e.glyph == null ? 20 * d : 0),
+                        (int) (e.glyph == null ? 20 * d : 0), (int) (e.glyph == null ? 20 * d : 0));
+                h.banner.setVisibility(View.GONE);
+                h.label.setVisibility(View.GONE);
+                h.icon.setImageDrawable(e.glyph != null ? e.glyph : e.icon);
+                h.icon.setVisibility(View.VISIBLE);
+                h.shadow.setVisibility(View.GONE);
+                break;
+            }
+            case TYPE_WIDE: {   // APPLE: a wide tile; the colour comes from the art's own edges
+                lp.width = (int) (205 * d);
+                lp.height = (int) (135 * d);
+                h.card.setLayoutParams(lp);
+                int[] edges = edgeColors(e);
+                GradientDrawable tile = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, edges);
+                tile.setCornerRadius(18 * d);
+                h.card.setBackground(tile);
+                boolean hasBanner = e.banner != null && e.glyph == null;
+                h.banner.setImageDrawable(e.banner);
+                h.banner.setVisibility(hasBanner ? View.VISIBLE : View.GONE);
+                h.icon.setImageDrawable(e.glyph != null ? e.glyph : e.icon);
+                h.icon.setVisibility(hasBanner ? View.GONE : View.VISIBLE);
+                if (e.glyph == null) h.icon.setPadding((int) (38 * d), (int) (28 * d), (int) (38 * d), (int) (28 * d));
+                h.label.setVisibility(View.GONE);
+                h.shadow.setVisibility(View.GONE);
+                h.name.setVisibility(View.VISIBLE);
+                FrameLayout.LayoutParams nlp = (FrameLayout.LayoutParams) h.name.getLayoutParams();
+                nlp.width = lp.width;
+                nlp.topMargin = (int) (135 * d + 14 * d);
+                h.name.setLayoutParams(nlp);
+                break;
+            }
+            default: {   // TYPE_ICON, the small dock icons of the DOCK theme
+                int size = (int) (56 * d);
+                lp.width = size;
+                lp.height = size;
+                h.card.setLayoutParams(lp);
+                // Icon only: the dock art (or the app's own icon) fills the rounded square, nothing behind it.
+                h.banner.setVisibility(View.GONE);
+                h.label.setVisibility(View.GONE);
+                h.icon.setImageDrawable(e.glyph != null ? e.glyph : e.icon);
+                h.icon.setVisibility(View.VISIBLE);
+                h.shadow.setVisibility(View.VISIBLE);
+                h.shadow.setScaleX(1f);
+                h.shadow.setScaleY(1f);
+                h.shadow.setTranslationY(0f);
+                h.name.setVisibility(View.INVISIBLE);   // the dock uses a tooltip instead
+                FrameLayout.LayoutParams nlp = (FrameLayout.LayoutParams) h.name.getLayoutParams();
+                nlp.width = (int) (100 * d);
+                nlp.topMargin = (int) (63 * d);
+                h.name.setLayoutParams(nlp);
+                break;
+            }
+        }        h.card.setOnClickListener(v -> launch(e));
         h.card.setOnLongClickListener(v -> {
             int pos = h.getBindingAdapterPosition();
             if (pos != RecyclerView.NO_POSITION) listener.onTileMenu(pos, v);
             return true;
         });
+    }
+
+    /** Top and bottom colour of the tile behind a square logo: sampled from the logo's own edges so they match. */
+    private int[] edgeColors(Entry e) {
+        if (e.edgeTop == 0) {
+            int top = 0xFF2A2A32, bottom = 0xFF2A2A32;   // graphite, for apps without brand art
+            if (e.glyph != null && e.glyph.getConstantState() != null) {
+                Drawable d = e.glyph.getConstantState().newDrawable().mutate();
+                int n = 16;
+                Bitmap bmp = Bitmap.createBitmap(n, n, Bitmap.Config.ARGB_8888);
+                d.setBounds(0, 0, n, n);
+                d.draw(new Canvas(bmp));
+                int t = bmp.getPixel(n / 2, 0), b = bmp.getPixel(n / 2, n - 1);
+                if (Color.alpha(t) > 200) top = t | 0xFF000000;
+                if (Color.alpha(b) > 200) bottom = b | 0xFF000000;
+                bmp.recycle();
+            }
+            e.edgeTop = top;
+            e.edgeBottom = bottom;
+        }
+        return new int[]{e.edgeTop, e.edgeBottom};
     }
 
     private void launch(Entry e) {
@@ -391,7 +464,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     }
 
     static final class Holder extends RecyclerView.ViewHolder {
-        final boolean bannerType;
+        final int type;
         final View card;
         final View shadow;
         final ImageView banner;
@@ -399,9 +472,9 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         final TextView label;
         final TextView name;
 
-        Holder(View v, TileListener listener, AppAdapter owner, boolean bannerType) {
+        Holder(View v, TileListener listener, AppAdapter owner, int type) {
             super(v);
-            this.bannerType = bannerType;
+            this.type = type;
             card = v.findViewById(R.id.card);
             shadow = v.findViewById(R.id.shadow);
             banner = v.findViewById(R.id.banner);
@@ -413,8 +486,14 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             card.setOutlineProvider(new ViewOutlineProvider() {
                 @Override
                 public void getOutline(View view, Outline outline) {
-                    // Banner cards: a fixed 12dp corner. Icons: squircle-ish, 22.5% of the short side.
-                    float radius = bannerType ? 12 * density
+                    // Banner cards: a fixed 12dp corner. Round icons: a circle. tvOS tiles: 18dp. Dock icons:
+                    // squircle-ish, 22.5% of the short side.
+                    if (Holder.this.type == TYPE_ROUND) {
+                        outline.setOval(0, 0, view.getWidth(), view.getHeight());
+                        return;
+                    }
+                    float radius = Holder.this.type == TYPE_BANNER ? 12 * density
+                            : Holder.this.type == TYPE_WIDE ? 18 * density
                             : Math.min(view.getWidth(), view.getHeight()) * CORNER_RATIO;
                     outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
                 }
@@ -431,9 +510,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                     return true;
                 }
                 if (keyCode != KeyEvent.KEYCODE_DPAD_UP && keyCode != KeyEvent.KEYCODE_DPAD_DOWN) return false;
-                // Only the DOCK theme mixes a dock row with the grid and needs its own up/down logic; the other
-                // themes are a plain grid and use Android's focus search.
-                if (owner.theme != Theme.DOCK) return false;
+                // The activity decides per theme (it returns false to leave it to Android's focus search).
                 return listener.onTileVerticalKey(pos, keyCode);
             });
 
@@ -441,9 +518,11 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 // Dock icons are magnified as a group by MainActivity; every other tile scales itself, at once.
                 boolean inDock = owner.isDocked(getBindingAdapterPosition());
                 if (!inDock) {
-                    float s = focused ? (bannerType ? BANNER_FOCUS_SCALE : FOCUS_SCALE) : 1.0f;
+                    float s = !focused ? 1.0f : Holder.this.type == TYPE_BANNER ? BANNER_FOCUS_SCALE
+                            : Holder.this.type == TYPE_WIDE ? WIDE_FOCUS_SCALE : FOCUS_SCALE;
                     view.setScaleX(s);
                     view.setScaleY(s);
+                    if (Holder.this.type == TYPE_WIDE) view.setElevation(focused ? 18 * density : 0f);
                 }
                 name.setAlpha(focused ? 1f : 0f);
                 name.setTranslationY(focused ? density * 4f : 0f);

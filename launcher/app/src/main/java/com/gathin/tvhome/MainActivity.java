@@ -94,10 +94,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private static final String PREFS = "tvhome";   // the same file the dock saves into (AppAdapter)
     private static final String PREF_WALLPAPER = "wallpaper";   // "auto", or the file name of a downloaded wallpaper
     private static final String PREF_THEME = "theme";           // Theme.key()
-    private static final int ANDROID_COLUMNS = 5;               // banner cards per row
-    private static final int APPLE_COLUMNS = 6;                 // large icons per row
+    private static final int APPLE_COLUMNS = 5;                 // wide tiles per row (APPLE)
     private Theme theme = Theme.DOCK;
     private DockDecoration dockDecoration;
+    private ShelfDecoration shelfDecoration;
+    private View androidHero, yourAppsLabel;
+    private TextView heroTitle, heroSubtitle;
     private TextView btnWifi;
     private float glassTargetX, glassTargetY;
     private boolean glassShown;
@@ -154,6 +156,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         greeting = findViewById(R.id.greeting);
         bgPhoto = findViewById(R.id.bgPhoto);
         btnWifi = findViewById(R.id.btnWifi);
+        androidHero = findViewById(R.id.androidHero);
+        heroTitle = findViewById(R.id.heroTitle);
+        heroSubtitle = findViewById(R.id.heroSubtitle);
+        yourAppsLabel = findViewById(R.id.yourAppsLabel);
 
         grid = findViewById(R.id.grid);
         grid.setHasFixedSize(true);
@@ -161,10 +167,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         adapter = new AppAdapter(this, this, DOCK_MAX);
         dockDecoration = new DockDecoration(adapter, DOCK_SLOTS, density);
+        shelfDecoration = new ShelfDecoration(APPLE_COLUMNS, density);
         theme = Theme.from(getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_THEME, Theme.DOCK.key()));
         adapter.setTheme(theme);
         grid.setAdapter(adapter);
         configureGrid();
+        applyChrome();
 
         // Keep the grid's padding right for the theme (in DOCK it also pushes the dock row to the bottom).
         grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> applyGridPadding());
@@ -245,6 +253,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         hideGlass();
         adapter.setTheme(t);
         configureGrid();
+        applyChrome();
         lastFocused = 0;
         grid.scrollToPosition(0);
         grid.post(() -> focusTile(0));
@@ -253,6 +262,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** Layout manager, spans and decoration for the current theme. */
     private void configureGrid() {
         if (dockDecoration != null) grid.removeItemDecoration(dockDecoration);
+        if (shelfDecoration != null) grid.removeItemDecoration(shelfDecoration);
         GridLayoutManager glm;
         if (theme == Theme.DOCK) {
             // The row is 2 * DOCK_SLOTS units wide (half-icon units, so the dock stays exactly centred for any number
@@ -271,31 +281,59 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 }
             });
             grid.addItemDecoration(dockDecoration);
+        } else if (theme == Theme.ANDROID) {
+            glm = new AppGridLayoutManager(this, 1, GridLayoutManager.HORIZONTAL);   // one row of round icons
         } else {
-            glm = new AppGridLayoutManager(this, theme == Theme.ANDROID ? ANDROID_COLUMNS : APPLE_COLUMNS);
+            glm = new AppGridLayoutManager(this, APPLE_COLUMNS);
+            grid.addItemDecoration(shelfDecoration);
         }
         grid.setLayoutManager(glm);
         applyGridPadding();
     }
 
+    /** What the Android theme adds above its row: the focused app's name, big, and the date. The header never changes. */
+    private void applyChrome() {
+        boolean android = theme == Theme.ANDROID;
+        androidHero.setVisibility(android ? View.VISIBLE : View.GONE);
+        yourAppsLabel.setVisibility(android ? View.VISIBLE : View.GONE);
+        if (android) showAndroidHero(-1);
+    }
+
+    /** The big title over the wallpaper: the focused app, or a greeting when nothing is focused. */
+    private void showAndroidHero(int position) {
+        String name = position >= 0 ? adapter.labelAt(position) : "";
+        heroTitle.setText(name.isEmpty() ? getString(GREETINGS[dayPart()]) : name);
+        heroSubtitle.setText(android.text.format.DateFormat.format("EEEE d MMMM", new java.util.Date()));
+    }
+
     /**
      * Side margins per theme, and the top padding: in DOCK it pushes the dock row to the bottom of the screen (the
-     * cards below hide until you press Down); in the other themes the grid simply starts under the top bar.
+     * cards below hide until you press Down); in ANDROID and APPLE the grid hangs from the bottom so the wallpaper shows
+     * above it. The header (greeting, clock, date, connection, settings) is the same in every theme.
      */
     private void applyGridPadding() {
         int side = (int) ((theme == Theme.DOCK ? 264 : 0) * density);   // the screen already has a 56dp margin
-        int bottom = theme == Theme.DOCK ? (int) (40 * density) : (int) (32 * density);
+        int bottom = (int) ((theme == Theme.DOCK ? 40 : theme == Theme.APPLE ? 24 : 36) * density);
         int top;
         if (theme == Theme.DOCK) {
             top = Math.max(0, grid.getHeight() - (int) ((101 + 6 + 12) * density) + (int) (8 * density));
+        } else if (theme == Theme.ANDROID) {
+            top = 0;   // the grid itself is only as tall as the row and sits at the bottom (see below)
         } else {
-            // Android and Apple hang from the bottom of the screen: two rows fit above the bottom margin and the
-            // wallpaper shows above them. More rows scroll in as you go down.
-            int rowDp = theme == Theme.ANDROID ? 137 : 144;   // card + the item's padding / the icon and its name
-            top = Math.max((int) (12 * density), grid.getHeight() - (int) (2 * rowDp * density) - bottom);
+            // tvOS: the first row (inside the shelf) sits low, the second one peeks in below it.
+            top = Math.max((int) (12 * density), grid.getHeight() - (int) (159 * 1.4f * density));
         }
         if (grid.getPaddingTop() != top || grid.getPaddingLeft() != side || grid.getPaddingBottom() != bottom) {
             grid.setPadding(side, top, side, bottom);
+        }
+        // ANDROID: a one-row horizontal grid is laid out from its own top, so rather than a huge top padding the grid
+        // is made exactly as tall as the row and anchored to the bottom of its parent. The other themes fill the parent.
+        FrameLayout.LayoutParams glp = (FrameLayout.LayoutParams) grid.getLayoutParams();
+        int wantHeight = theme == Theme.ANDROID ? (int) (104 * density) + bottom : ViewGroup.LayoutParams.MATCH_PARENT;
+        if (glp.height != wantHeight || glp.gravity != Gravity.BOTTOM) {
+            glp.height = wantHeight;
+            glp.gravity = Gravity.BOTTOM;
+            grid.setLayoutParams(glp);
         }
     }
 
@@ -309,18 +347,28 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         magnifyDock(-1);
         hideHero();
         hideGlass();
-        // The focused row always rests with its bottom edge on the grid's bottom margin, at once (no animated scroll).
-        // The same rule for every card of a row means moving sideways never moves the grid, and going back to a row
-        // puts it where it was. The grid does no scrolling of its own (see AppGridLayoutManager), so this is the only
-        // scroll; the list clamps it at both ends (so the first rows of ANDROID and APPLE stay hanging from the bottom).
+        if (theme == Theme.ANDROID) showAndroidHero(position);
+        // Scrolling is done here, at once (no animation), and only here: the grid does no scrolling of its own (see
+        // AppGridLayoutManager). The rule is the same for every card of a row, so moving sideways never moves the grid
+        // and going back to a row puts it where it was. The list clamps the result at both ends.
         View item = (View) card.getParent();
         grid.post(() -> {
             if (!item.isAttachedToWindow() || lastFocused != position) return;
-            int dy = item.getBottom() - (grid.getHeight() - grid.getPaddingBottom());
+            if (theme == Theme.ANDROID) {   // the single row scrolls sideways: keep the focused icon in view
+                int left = grid.getPaddingLeft(), right = grid.getWidth() - grid.getPaddingRight();
+                int dx = item.getRight() > right ? item.getRight() - right : item.getLeft() < left ? item.getLeft() - left : 0;
+                if (dx != 0) grid.scrollBy(dx, 0);
+                return;
+            }
+            int dy;
+            if (theme == Theme.APPLE) {
+                dy = item.getTop() - grid.getPaddingTop();                       // the focused row's top on the shelf line
+            } else {   // DOCK: the focused row's bottom on the bottom margin
+                dy = item.getBottom() - (grid.getHeight() - grid.getPaddingBottom());
+            }
             if (dy != 0) grid.scrollBy(0, dy);
         });
     }
-
     // ---- top shelf -------------------------------------------------------------------------------
 
     private void onDockFocused(int position, View card) {
@@ -413,6 +461,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     public boolean onTileVerticalKey(int position, int keyCode) {
+        if (theme == Theme.ANDROID) return keyCode == KeyEvent.KEYCODE_DPAD_DOWN;   // one row: Down stays, Up reaches the header
+        if (theme != Theme.DOCK) return false;   // APPLE is a plain grid: Android's focus search does it
         int count = adapter.getItemCount();
         int dock = adapter.dockCount();
         int target;

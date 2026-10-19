@@ -133,7 +133,6 @@
                         android:textAllCaps="true" />
                 </LinearLayout>
             </LinearLayout>
-
             <LinearLayout
                 android:id="@+id/topButtons"
                 android:layout_width="wrap_content"
@@ -182,6 +181,52 @@
         </FrameLayout>
     </LinearLayout>
 
+    <!-- Android theme: the focused app's name, big, over the wallpaper, and the date under it. -->
+    <LinearLayout
+        android:id="@+id/androidHero"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="68dp"
+        android:layout_marginBottom="250dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/heroTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFFFF"
+            android:textSize="54sp"
+            android:fontFamily="@font/outfit"
+            android:singleLine="true"
+            android:includeFontPadding="false" />
+
+        <TextView
+            android:id="@+id/heroSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="#CCFFFFFF"
+            android:textSize="18sp"
+            android:fontFamily="@font/open_sans"
+            android:fontVariationSettings="'wght' 400"
+            android:singleLine="true" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/yourAppsLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="68dp"
+        android:layout_marginBottom="172dp"
+        android:text="@string/your_apps"
+        android:textColor="#CCFFFFFF"
+        android:textSize="16sp"
+        android:fontFamily="@font/open_sans"
+        android:fontVariationSettings="'wght' 500"
+        android:visibility="gone" />
     <!-- Dot under the focused dock icon, positioned in code. -->
     <View
         android:id="@+id/dockDot"

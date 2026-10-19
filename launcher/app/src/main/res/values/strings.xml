@@ -44,4 +44,6 @@
     <string name="system_settings">Android settings</string>
     <string name="system_network">Network</string>
     <string name="system_display">Display</string>
-    <string name="system_sound">Sound</string></resources>
+    <string name="system_sound">Sound</string>
+    <string name="your_apps">Your apps</string>
+</resources>

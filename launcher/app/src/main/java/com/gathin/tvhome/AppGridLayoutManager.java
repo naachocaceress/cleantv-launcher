@@ -20,13 +20,17 @@ final class AppGridLayoutManager extends GridLayoutManager {
         super(context, spanCount);
     }
 
+    AppGridLayoutManager(Context context, int spanCount, int orientation) {
+        super(context, spanCount, orientation, false);
+    }
+
     /**
      * Always lay out a screen's worth of rows beyond the visible area. The row below the focused one then exists when
      * the user presses Down, so focus can move to it (and be scrolled to) without waiting for a layout pass.
      */
     @Override
     protected void calculateExtraLayoutSpace(@NonNull RecyclerView.State state, @NonNull int[] extraLayoutSpace) {
-        int extra = getHeight();
+        int extra = getOrientation() == HORIZONTAL ? getWidth() : getHeight();
         extraLayoutSpace[0] = extra;
         extraLayoutSpace[1] = extra;
     }

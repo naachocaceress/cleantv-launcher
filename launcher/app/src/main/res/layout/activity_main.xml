@@ -188,7 +188,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|start"
         android:layout_marginStart="68dp"
-        android:layout_marginBottom="250dp"
+        android:layout_marginBottom="210dp"
         android:orientation="vertical"
         android:visibility="gone">
 
@@ -201,17 +201,6 @@
             android:fontFamily="@font/outfit"
             android:singleLine="true"
             android:includeFontPadding="false" />
-
-        <TextView
-            android:id="@+id/heroSubtitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:textColor="#CCFFFFFF"
-            android:textSize="18sp"
-            android:fontFamily="@font/open_sans"
-            android:fontVariationSettings="'wght' 400"
-            android:singleLine="true" />
     </LinearLayout>
 
     <TextView

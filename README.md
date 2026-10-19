@@ -24,7 +24,7 @@ Los diseños están **inspirados** en pantallas de inicio conocidas, pero no son
 | Tema | Qué muestra | Inspirado en |
 |---|---|---|
 | **Dock** | Un dock de hasta 8 íconos que crecen al enfocarlos, con el nombre arriba y un brillo del color de la app. Con ↓ aparecen las demás apps como tarjetas. | El dock de macOS |
-| **Círculos** | Una fila de íconos redondos abajo que se desplaza hacia el costado, con el nombre de la app enfocada en grande y la fecha. | La pantalla de inicio de Google TV |
+| **Círculos** | Una fila de íconos redondos abajo que se desplaza hacia el costado, con el nombre de la app enfocada en grande. | La pantalla de inicio de Google TV |
 | **Mosaicos** | Mosaicos anchos sobre una bandeja translúcida; el enfocado crece sin salirse de la bandeja, y la fila siguiente asoma abajo. | La pantalla de inicio de tvOS |
 
 El encabezado (saludo, hora, fecha, conexión y Ajustes) es el mismo en todos los temas; solo cambia cómo se muestran las apps.
@@ -41,10 +41,9 @@ El encabezado (saludo, hora, fecha, conexión y Ajustes) es el mismo en todos lo
 
 ## Cómo se usa
 
-- **Fijar una app:** mantené OK (o apretá Menú) sobre la app y elegí *Fijar en el dock* (en Círculos y Mosaicos pasa
-  al principio de la lista).
+- **Fijar una app:** mantené OK (o apretá Menú) sobre la app y elegí *Fijar en el dock* (no existe en Círculos, donde todas las apps van en una sola fila).
 - **Reordenar el dock:** mantené OK sobre una app del dock, elegí *Mover*, usá ← y →, y OK al terminar. Solo se mueven
-  las apps fijadas (en Mosaicos también las demás, con las cuatro flechas); en los otros temas el resto va en orden
+  las apps fijadas (en Mosaicos también las demás, con las cuatro flechas, y en Círculos todas, con ← →); en los otros temas el resto va en orden
   alfabético, y por eso fijar tiene sentido. Cada tema guarda sus propias apps fijadas.
 - Algunas cajas capturan la tecla Menú para su propio diálogo; en ese caso mantené OK.
 - La grilla no tiene animaciones; el dock conserva el crecimiento, el nombre y el brillo.

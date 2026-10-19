@@ -170,6 +170,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         String savedOrder = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(orderKey(), "");
         if (!savedOrder.isEmpty()) order.addAll(Arrays.asList(savedOrder.split(",")));
         pinned.clear();
+        if (theme == Theme.CIRCLES) return;   // one long row: nothing is pinned, every app can just be moved
         String saved = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(pinnedKey(), null);
         if (saved != null) {
             if (!saved.isEmpty()) pinned.addAll(Arrays.asList(saved.split(",")));

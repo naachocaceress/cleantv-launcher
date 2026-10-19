@@ -99,7 +99,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private DockDecoration dockDecoration;
     private ShelfDecoration shelfDecoration;
     private View circlesHero, yourAppsLabel;
-    private TextView heroTitle, heroSubtitle;
+    private TextView heroTitle;
     private TextView btnWifi;
     private float glassTargetX, glassTargetY;
     private boolean glassShown;
@@ -156,7 +156,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnWifi = findViewById(R.id.btnWifi);
         circlesHero = findViewById(R.id.circlesHero);
         heroTitle = findViewById(R.id.heroTitle);
-        heroSubtitle = findViewById(R.id.heroSubtitle);
         yourAppsLabel = findViewById(R.id.yourAppsLabel);
 
         grid = findViewById(R.id.grid);
@@ -298,7 +297,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         applyGridPadding();
     }
 
-    /** What the CIRCLES theme adds above its row: the focused app's name, big, and the date. The header never changes. */
+    /** What the CIRCLES theme adds above its row: the focused app's name, big. The header (with the date) never changes. */
     private void applyChrome() {
         boolean circles = theme == Theme.CIRCLES;
         circlesHero.setVisibility(circles ? View.VISIBLE : View.GONE);
@@ -310,7 +309,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void showCirclesHero(int position) {
         String name = position >= 0 ? adapter.labelAt(position) : "";
         heroTitle.setText(name.isEmpty() ? getString(GREETINGS[dayPart()]) : name);
-        heroSubtitle.setText(android.text.format.DateFormat.format("EEEE d MMMM", new java.util.Date()));
     }
 
     /**
@@ -532,8 +530,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         popup.setElevation(0f);
 
         // Only pinned apps can be reordered (that is what pinning is for); the other apps stay alphabetical.
-        if (adapter.isPinnedAt(position) || theme == Theme.TILES) addInputRow(rows, popup, R.drawable.ic_move, getString(R.string.move), -1, () -> startMove(pkg));
-        if (adapter.isPinned(pkg)) {
+        if (adapter.isPinnedAt(position) || theme == Theme.TILES || theme == Theme.CIRCLES) addInputRow(rows, popup, R.drawable.ic_move, getString(R.string.move), -1, () -> startMove(pkg));
+        if (theme == Theme.CIRCLES) {
+            // one long row: no pinning, only Move
+        } else if (adapter.isPinned(pkg)) {
             addInputRow(rows, popup, R.drawable.ic_unpin,
                     getString(pinsToFront ? R.string.unpin_from_front : R.string.unpin_from_dock), -1, () -> {
                 adapter.unpin(pkg);
@@ -616,6 +616,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     adapter.move(pkg, sign);
                 } else if (theme == Theme.TILES) {   // the apps outside the plate can go anywhere among themselves
                     adapter.moveInRest(pkg, sideways ? sign : sign * TILES_COLUMNS);
+                } else if (theme == Theme.CIRCLES) {   // one row: every app moves along it
+                    if (!sideways) return true;
+                    adapter.moveInRest(pkg, sign);
                 } else {
                     return true;
                 }

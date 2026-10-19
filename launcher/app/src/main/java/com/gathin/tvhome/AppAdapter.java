@@ -135,10 +135,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         this.ctx = ctx;
         this.listener = listener;
         this.maxDock = maxDock;
-        String saved = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(PREF_DOCK, null);
-        pinned.addAll(saved != null
-                ? (saved.isEmpty() ? Collections.emptyList() : Arrays.asList(saved.split(",")))
-                : Arrays.asList(ctx.getResources().getStringArray(R.array.dock_apps)));
+        loadPinned();
         this.hidden = new HashSet<>(Arrays.asList(ctx.getResources().getStringArray(R.array.hidden_apps)));
     }
 
@@ -148,7 +145,28 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     void setTheme(Theme theme) {
         this.theme = theme;
+        loadPinned();   // every theme has its own pinned apps
         reload();
+    }
+
+    /** Where this theme keeps its pinned apps. DOCK keeps using the first version's key, so nothing is lost on update. */
+    private String pinnedKey() {
+        return theme == Theme.DOCK ? PREF_DOCK : PREF_DOCK + "_" + theme.key();
+    }
+
+    /**
+     * Loads the current theme's pinned list. A theme that was never used starts from config.xml (dock_apps), cut to what
+     * that theme can hold; after that it is edited on the TV.
+     */
+    private void loadPinned() {
+        pinned.clear();
+        String saved = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(pinnedKey(), null);
+        if (saved != null) {
+            if (!saved.isEmpty()) pinned.addAll(Arrays.asList(saved.split(",")));
+            return;
+        }
+        List<String> start = Arrays.asList(ctx.getResources().getStringArray(R.array.dock_apps));
+        pinned.addAll(start.subList(0, Math.min(start.size(), pinLimit())));
     }
 
     void reload() {
@@ -268,7 +286,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     private void saveAndReload() {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                .putString(PREF_DOCK, String.join(",", pinned)).apply();
+                .putString(pinnedKey(), String.join(",", pinned)).apply();
         reload();
     }
 

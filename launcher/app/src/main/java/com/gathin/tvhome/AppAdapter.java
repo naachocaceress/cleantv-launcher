@@ -536,6 +536,11 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         return Color.HSVToColor(hsv);
     }
 
+    private static boolean isDescendant(ViewGroup ancestor, View v) {
+        for (android.view.ViewParent p = v.getParent(); p != null; p = p.getParent()) if (p == ancestor) return true;
+        return false;
+    }
+
     static final class Holder extends RecyclerView.ViewHolder {
         final int type;
         final View card;
@@ -581,6 +586,14 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 if (keyCode == KeyEvent.KEYCODE_MENU) {
                     listener.onTileMenu(pos, view);
                     return true;
+                }
+                if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                    // Sideways never leaves the apps: at the end of a row Android would otherwise jump to the closest
+                    // thing on that side, which is the header buttons. The header is reached with Up only.
+                    View next = view.focusSearch(keyCode == KeyEvent.KEYCODE_DPAD_LEFT ? View.FOCUS_LEFT : View.FOCUS_RIGHT);
+                    ViewGroup list = itemView.getParent() instanceof ViewGroup ? (ViewGroup) itemView.getParent() : null;
+                    if (next == null || list == null || !isDescendant(list, next)) return true;
+                    return false;
                 }
                 if (keyCode != KeyEvent.KEYCODE_DPAD_UP && keyCode != KeyEvent.KEYCODE_DPAD_DOWN) return false;
                 // The activity decides per theme (it returns false to leave it to Android's focus search).

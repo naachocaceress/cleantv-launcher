@@ -1,132 +1,138 @@
 # CleanTV Launcher
 
-A clean home screen for Android TV boxes, with three themes you can switch between: a **Dock** (macOS
-style), **Android** (Google TV style) and **Apple** (tvOS style). Wallpapers are downloaded on demand,
-apps can be pinned and reordered from the remote, and there are no ads, no accounts and no tracking.
+*[English version](README.en.md)*
 
-> **Based on other people's work.** This is a fork of
-> [itsmeterrylin/fire-tv-cleanup](https://github.com/itsmeterrylin/fire-tv-cleanup), which is itself a fork of
-> [Gathin23/tv-vibehack](https://github.com/Gathin23/tv-vibehack). The launcher, the debloat tools and the
-> original idea come from them (MIT licence, see [Licence](#licence)). What this fork changed is listed
-> [below](#what-this-fork-changed).
+Una pantalla de inicio limpia para TV boxes con Android TV, con **tres temas** intercambiables, fondos de pantalla que se
+descargan cuando los pedís y sin anuncios, cuentas ni rastreo. Se adapta al idioma del TV (español o inglés).
 
-| Dock | Android | Apple |
+> **Basado en el trabajo de otras personas.** Es un fork de
+> [itsmeterrylin/fire-tv-cleanup](https://github.com/itsmeterrylin/fire-tv-cleanup), que a su vez es un fork de
+> [Gathin23/tv-vibehack](https://github.com/Gathin23/tv-vibehack). El launcher, las herramientas de limpieza y la idea
+> original son de ellos (licencia MIT, ver [Licencia](#licencia)). Lo que cambió este fork está
+> [más abajo](#qué-cambió-este-fork).
+
+| Dock | Círculos | Mosaicos |
 |---|---|---|
-| ![Dock theme](docs/theme-dock.jpg) | ![Android theme](docs/theme-android.jpg) | ![Apple theme](docs/theme-apple.jpg) |
+| ![Tema Dock](docs/tema-dock.jpg) | ![Tema Círculos](docs/tema-circulos.jpg) | ![Tema Mosaicos](docs/tema-mosaicos.jpg) |
 
-Screenshots taken on a ZTE B866V2 (Android 9). The wallpaper is a NASA/ESA/CSA image.
+Capturas de un ZTE B866V2 (Android 9). El fondo es una imagen de NASA/ESA/CSA.
 
-## The three themes
+## Los tres temas
 
-| Theme | What you get |
-|---|---|
-| **Dock** | A dock of up to 8 magnified icons at the bottom, with a name tooltip and a soft glow in the colour of the focused app. Press Down for the rest of your apps as banner cards. |
-| **Android** | One row of round icons hanging from the bottom, a big title with the focused app's name, the date and "Your apps", like Google TV. The row scrolls sideways. |
-| **Apple** | Wide tiles on a translucent shelf, the focused one grows and shows its name, the next row peeks in below, like tvOS. |
+Los diseños están **inspirados** en pantallas de inicio conocidas, pero no son copias ni usan sus nombres ni sus marcas.
 
-The header (greeting, clock, date, connection and Settings buttons) is the same in every theme; only the way
-the apps are shown changes.
+| Tema | Qué muestra | Inspirado en |
+|---|---|---|
+| **Dock** | Un dock de hasta 8 íconos que crecen al enfocarlos, con el nombre arriba y un brillo del color de la app. Con ↓ aparecen las demás apps como tarjetas. | El dock de macOS |
+| **Círculos** | Una fila de íconos redondos abajo que se desplaza hacia el costado, con el nombre de la app enfocada en grande y la fecha. | La pantalla de inicio de Google TV |
+| **Mosaicos** | Mosaicos anchos sobre una bandeja translúcida; el enfocado crece y muestra su nombre, y la fila siguiente asoma abajo. | La pantalla de inicio de tvOS |
 
-## The Settings panel
+El encabezado (saludo, hora, fecha, conexión y Ajustes) es el mismo en todos los temas; solo cambia cómo se muestran las apps.
 
-The Settings button opens a panel on the right edge:
+## Encabezado
 
-- **Theme**: Dock, Android or Apple.
-- **Wallpaper**: download a new one from the web, step through the ones you have, remove the current one, or go
-  back to the time-of-day photos.
-- **Android**: the system settings, network, display and sound screens, and the TV inputs when the box has any.
+- **Conexión:** un solo ícono. Ethernet si está por cable, Wi-Fi (con barras de señal) si está por Wi-Fi, y el mismo
+  ícono tachado si no hay internet o no hay red.
+- **Ajustes:** abre un panel a la derecha con tres botones: **Tema**, **Fondo de pantalla** y **Ajustes de Android**.
+  Tema y Fondo abren su propia pantalla dentro del panel (con *Volver*); Ajustes de Android abre directamente los
+  ajustes del sistema. Si la caja tiene entradas HDMI o sintonizador, aparece también **Entradas**.
 
-![Settings panel](docs/settings-panel.jpg)
+![Panel de ajustes](docs/ajustes.jpg)
 
-## Using it
+## Cómo se usa
 
-- **Pin an app:** hold OK (or press Menu) on an app and choose **Pin to Dock** (in the Android and Apple themes
-  it moves the app to the start of the list).
-- **Reorder the dock:** hold OK on a dock app, choose **Move**, use Left and Right, press OK when done.
-  Only dock apps can be moved; the rest are alphabetical, which is what makes pinning meaningful.
-- **Some boxes grab the Menu key** for their own dialog. Hold OK instead.
-- Nothing is animated in the grid; the dock keeps its magnification, tooltip and glow.
+- **Fijar una app:** mantené OK (o apretá Menú) sobre la app y elegí *Fijar en el dock* (en Círculos y Mosaicos pasa
+  al principio de la lista).
+- **Reordenar el dock:** mantené OK sobre una app del dock, elegí *Mover*, usá ← y →, y OK al terminar. Solo se mueven
+  las apps del dock; el resto va en orden alfabético, y por eso fijar tiene sentido.
+- Algunas cajas capturan la tecla Menú para su propio diálogo; en ese caso mantené OK.
+- La grilla no tiene animaciones; el dock conserva el crecimiento, el nombre y el brillo.
 
-## Wallpapers
+## Fondos de pantalla
 
-Nothing is bundled except the original time-of-day photos. [`assets/wallpapers.json`](launcher/app/src/main/assets/wallpapers.json)
-is a list of links to freely licensed pictures on [Wikimedia Commons](https://commons.wikimedia.org) (CC0, public
-domain, CC BY, CC BY-SA). **New wallpaper from the web** downloads one, crops it to 1920×1080 and keeps it in the
-launcher's private storage together with its author and licence. Rebuild the list with
-[`tools/make_wallpaper_catalog.py`](tools/make_wallpaper_catalog.py), or add your own list with
-`wallpaper_catalog_url` in [`config.xml`](launcher/app/src/main/res/values/config.xml) (a JSON array of
-`{"title", "credit", "url"}`). The launcher needs the `INTERNET` permission for this and nothing else.
+No se incluye ninguno aparte de las fotos originales según la hora. [`wallpapers.json`](launcher/app/src/main/assets/wallpapers.json)
+es una lista de enlaces a imágenes de libre uso de [Wikimedia Commons](https://commons.wikimedia.org) (CC0, dominio
+público, CC BY, CC BY-SA). *Nuevo fondo de la web* descarga una, la recorta a 1920×1080 y la guarda en el almacenamiento
+privado del launcher junto con su autor y licencia. Podés regenerar la lista con
+[`tools/make_wallpaper_catalog.py`](tools/make_wallpaper_catalog.py) o sumar la tuya con `wallpaper_catalog_url` en
+[`config.xml`](launcher/app/src/main/res/values/config.xml) (un JSON con `{"title", "credit", "url"}`). Es lo único
+para lo que el launcher usa el permiso de internet.
 
-## Install
+## Instalación
 
-You need JDK 17 and the Android SDK (platform 34, build-tools 34.0.0), and the TV on the same network with
-USB / network debugging on (Settings → Device Preferences → About → press OK on **Build** seven times, then
-Developer options → USB debugging).
+Necesitás JDK 17 y el Android SDK (plataforma 34, build-tools 34.0.0), y el TV en la misma red con la depuración activada
+(Ajustes → Preferencias del dispositivo → Acerca de → apretá OK siete veces en **Compilación**; después, Opciones de
+desarrollador → Depuración USB).
 
 ```bash
 python3 -m venv tools/venv && tools/venv/bin/pip install -r tools/requirements.txt
-TV_HOST=192.168.1.50 launcher/build-and-install.sh      # your TV's IP
+TV_HOST=192.168.1.50 launcher/build-and-install.sh      # la IP de tu TV
 ```
 
-That builds the APK, installs it and sets it as the default home. The stock launcher is **not** touched unless you add `DISABLE_STOCK=1` (install first, disable second, or Home lands on a factory test app). To go back, uninstall it or choose the other launcher when Android asks.
+Compila el APK, lo instala y lo deja como inicio. El launcher de fábrica **no se toca** salvo que agregues
+`DISABLE_STOCK=1` (primero instalá, después deshabilitá, o Inicio cae en una app de pruebas de fábrica). Para volver,
+desinstalá el launcher o elegí el otro cuando Android pregunte.
 
-> The script uses Gradle, which this fork could not run on its author's Windows PC (a Java NIO problem there). The APK was built directly with the Android SDK tools (`aapt2`, `javac`, `d8`, `apksigner`) and installed with `adb install`, which is the path that was tested.
+> El script usa Gradle, que este fork no pudo ejecutar en la PC de su autor (un problema de Java NIO). El APK se armó
+> directamente con las herramientas del SDK (`aapt2`, `javac`, `d8`, `apksigner`) y se instaló con `adb install`; ese es
+> el camino que se probó.
 
-The application id is still `com.gathin.tvhome`, as in the original. It is internal, and keeping it means
-settings survive an update.
+El id de la aplicación sigue siendo `com.gathin.tvhome`, como en el original. Es interno y mantenerlo conserva tus ajustes
+al actualizar.
 
-## Configuration
+## Configuración
 
 [`launcher/app/src/main/res/values/config.xml`](launcher/app/src/main/res/values/config.xml):
 
-| Key | What it does |
+| Clave | Para qué sirve |
 |---|---|
-| `dock_apps` | The starting dock, in order. After that you edit it on the TV. |
-| `hidden_apps` | Packages never shown. |
-| `live_tv_package` | The TV's tuner app, offered in the Inputs menu. Empty to omit. |
-| `columns`, `dock_max`, `dock_slots` | Cards per row, most apps in the dock, and how close the dock icons sit. |
-| `wallpaper_catalog_url` | Optional extra list of wallpapers. |
+| `dock_apps` | El dock inicial, en orden. Después se edita desde el TV. |
+| `hidden_apps` | Paquetes que nunca se muestran. |
+| `live_tv_package` | La app del sintonizador, para el menú Entradas. Vacío para omitirla. |
+| `columns`, `dock_max`, `dock_slots` | Tarjetas por fila, máximo de apps en el dock y qué tan juntos van sus íconos. |
+| `wallpaper_catalog_url` | Lista opcional de fondos propios. |
 
-To put your name in the greeting, add `tvhome.userName=Alex` to `launcher/local.properties`.
+Para poner tu nombre en el saludo, agregá `tvhome.userName=Alex` a `launcher/local.properties`.
 
-### App icons
+### Íconos de las apps
 
-The dock and the Apple theme use square brand tiles (Netflix, YouTube, Prime Video, Disney+ and more). They are
-trademarked logos, so they are **not in the repo**: [`tools/make_dock_icons.py`](tools/make_dock_icons.py) draws
-them on your machine (needs Pillow, and downloads the marks once from the
-[Dashboard Icons](https://github.com/homarr-labs/dashboard-icons) pack). Without them every app simply shows its own icon.
+El dock y los Mosaicos usan fichas cuadradas con la marca de cada app (Netflix, YouTube, Prime Video, Disney+ y más).
+Son logos registrados, así que **no están en el repo**: [`tools/make_dock_icons.py`](tools/make_dock_icons.py) los dibuja
+en tu máquina (necesita Pillow y baja las marcas una vez del paquete
+[Dashboard Icons](https://github.com/homarr-labs/dashboard-icons)). Sin ellos, cada app muestra su propio ícono.
 
-## What this fork changed
+## Qué cambió este fork
 
-Compared with [itsmeterrylin/fire-tv-cleanup](https://github.com/itsmeterrylin/fire-tv-cleanup):
+Respecto de [itsmeterrylin/fire-tv-cleanup](https://github.com/itsmeterrylin/fire-tv-cleanup):
 
-- Three switchable themes (Dock, Android, Apple) and a Settings panel to choose them.
-- Wallpapers downloaded on demand from a Wikimedia Commons catalog, instead of a fixed set.
-- A bigger dock (up to 8 apps, spacing configurable), with icon-only tiles and no ring around them, and an
-  icon set for more apps (Disney+, Crunchyroll, Stremio, Max, Kodi, Spotify, Plex and others).
-- Banner cards from each app's own TV banner for the apps below the dock.
-- Reordering (Move) for dock apps, no bounce or entrance animations in the grid.
-- A header that never changes between themes; the top bar is reduced to the connection and Settings buttons.
-- The Fire TV Home-redirect accessibility service and the `WRITE_SECURE_SETTINGS` permission were **removed**: the
-  launcher is for Android TV boxes, and it no longer asks for either.
-- Grid navigation fixes (the original grid drifted a few pixels with every move).
+- Tres temas intercambiables (Dock, Círculos y Mosaicos) y un panel de Ajustes para elegirlos.
+- Fondos descargados bajo demanda desde un catálogo de Wikimedia Commons, en lugar de un conjunto fijo.
+- Un dock más grande (hasta 8 apps, con separación configurable), con íconos sin recuadro, y más íconos de marca
+  (Disney+, Crunchyroll, Stremio, Max, Kodi, Spotify, Plex y otros).
+- Tarjetas con el banner propio de cada app para las que no están en el dock.
+- Mover apps del dock, y sin rebotes ni animaciones de entrada en la grilla.
+- Un encabezado que no cambia entre temas, con un único ícono de conexión (Ethernet, Wi-Fi o tachado) y Ajustes.
+- Interfaz en español e inglés según el idioma del TV.
+- Se **quitaron** el servicio de accesibilidad que redirigía Inicio en Fire TV y el permiso `WRITE_SECURE_SETTINGS`: el
+  launcher es para cajas con Android TV y ya no pide ninguno de los dos.
+- Correcciones de navegación en la grilla (la original se corría unos píxeles con cada movimiento).
 
-Tested only on a ZTE B866V2 (Android 9, 32-bit ARM, 2 GB RAM). **Fire TV is no longer supported by this fork**,
-and Samsung Tizen and LG webOS never were.
+Probado solo en un ZTE B866V2 (Android 9, ARM de 32 bits, 2 GB de RAM). **Fire TV ya no está soportado por este fork**, y
+Samsung Tizen y LG webOS nunca lo estuvieron.
 
-## Debloat toolkit (from the original project)
+## Herramientas de limpieza (del proyecto original)
 
-These parts are inherited, not changed here, and have not been re-tested by this fork:
+Estas partes se heredan sin cambios y este fork no las volvió a probar:
 
-| Path | What it is |
+| Ruta | Qué es |
 |---|---|
-| [`PROMPT.md`](PROMPT.md) | A prompt for a coding assistant to debloat and set up a TV over ADB. |
-| [`tools/tv.py`](tools/tv.py), [`tools/b64push.py`](tools/b64push.py) | A pure-Python ADB client and a chunked file upload. |
-| [`tools/disable.sh`](tools/disable.sh), [`tools/restore.sh`](tools/restore.sh) | Apply or undo a debloat list. Packages are disabled, never uninstalled. |
-| [`examples/`](examples/) | Per-TV debloat lists. See [CONTRIBUTING.md](CONTRIBUTING.md) to add yours. |
+| [`PROMPT.md`](PROMPT.md) | Un prompt para que un asistente de código limpie y configure un TV por ADB. |
+| [`tools/tv.py`](tools/tv.py), [`tools/b64push.py`](tools/b64push.py) | Un cliente ADB en Python puro y una subida de archivos por partes. |
+| [`tools/disable.sh`](tools/disable.sh), [`tools/restore.sh`](tools/restore.sh) | Aplican o deshacen una lista de apps a deshabilitar. Los paquetes se deshabilitan, nunca se desinstalan. |
+| [`examples/`](examples/) | Listas por modelo de TV. Ver [CONTRIBUTING.md](CONTRIBUTING.md) para sumar la tuya. |
 
-## Licence
+## Licencia
 
-MIT, see [`LICENSE`](LICENSE): © 2026 Gathin (original work) and © 2026 Nacho (changes in this fork). The Outfit
-and Open Sans typefaces are under the SIL Open Font License, see `launcher/FONT-LICENSE-OFL.txt`. Photo and
-asset credits are in [`CREDITS.md`](CREDITS.md). Brand names and logos belong to their owners.
+MIT, ver [`LICENSE`](LICENSE): © 2026 Gathin (obra original) y © 2026 Nacho (cambios de este fork). Las tipografías Outfit y
+Open Sans están bajo la SIL Open Font License, ver `launcher/FONT-LICENSE-OFL.txt`. Los créditos de fotos y recursos están en
+[`CREDITS.md`](CREDITS.md). Los nombres y logos de marcas pertenecen a sus dueños.

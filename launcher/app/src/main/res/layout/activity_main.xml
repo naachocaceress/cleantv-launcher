@@ -144,8 +144,8 @@
 
                 <TextView
                     android:id="@+id/btnWifi"
-                    style="@style/TopButton"
-                    android:text="@string/wifi"
+                    style="@style/TopIconButton"
+                    android:contentDescription="@string/wifi"
                     android:drawableStart="@drawable/ic_wifi"
                     android:nextFocusDown="@+id/grid" />
 
@@ -181,9 +181,9 @@
         </FrameLayout>
     </LinearLayout>
 
-    <!-- Android theme: the focused app's name, big, over the wallpaper, and the date under it. -->
+    <!-- CIRCLES theme: the focused app's name, big, over the wallpaper, and the date under it. -->
     <LinearLayout
-        android:id="@+id/androidHero"
+        android:id="@+id/circlesHero"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|start"

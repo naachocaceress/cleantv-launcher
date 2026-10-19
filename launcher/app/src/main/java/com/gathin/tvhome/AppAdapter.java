@@ -39,8 +39,8 @@ import java.util.Set;
  * saved on the device and starts from res/values/config.xml (dock_apps).
  *
  * What a tile looks like depends on the {@link Theme}: in DOCK the first {@link #dockCount()} positions are the dock
- * (small icons) and the rest are banner cards; in ANDROID every app is a banner card; in APPLE every app is a large
- * icon. Only ANDROID and APPLE have no dock ({@link #dockCount()} is 0), so "pinned" just means "listed first".
+ * (small icons) and the rest are banner cards; in CIRCLES every app is a round icon; in TILES every app is a wide tile
+ * Only CIRCLES and TILES have no dock ({@link #dockCount()} is 0), so "pinned" just means "listed first".
  */
 public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
@@ -107,7 +107,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         }
     }
 
-    static final float FOCUS_SCALE = 1.10f;          // large icons (APPLE)
+    static final float FOCUS_SCALE = 1.10f;          // large icons
     static final float BANNER_FOCUS_SCALE = 1.06f;   // banner cards
     static final float WIDE_FOCUS_SCALE = 1.12f;     // tvOS tiles
     static final float CORNER_RATIO = 0.225f;
@@ -254,8 +254,8 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     @Override
     public int getItemViewType(int position) {
-        if (theme == Theme.APPLE) return TYPE_WIDE;
-        if (theme == Theme.ANDROID) return TYPE_ROUND;
+        if (theme == Theme.TILES) return TYPE_WIDE;
+        if (theme == Theme.CIRCLES) return TYPE_ROUND;
         return isDocked(position) ? TYPE_ICON : TYPE_BANNER;
     }
 
@@ -303,7 +303,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 h.label.setVisibility(hasBanner ? View.GONE : View.VISIBLE);
                 break;
             }
-            case TYPE_ROUND: {   // ANDROID: a round icon with a white ring when focused (the name is the big title)
+            case TYPE_ROUND: {   // CIRCLES: a round icon with a white ring when focused (the name is the big title)
                 int size = (int) (88 * d);
                 lp.width = size;
                 lp.height = size;
@@ -319,7 +319,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 h.shadow.setVisibility(View.GONE);
                 break;
             }
-            case TYPE_WIDE: {   // APPLE: a wide tile; the colour comes from the art's own edges
+            case TYPE_WIDE: {   // TILES: a wide tile; the colour comes from the art's own edges
                 lp.width = (int) (205 * d);
                 lp.height = (int) (135 * d);
                 h.card.setLayoutParams(lp);
@@ -338,7 +338,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 h.name.setVisibility(View.VISIBLE);
                 FrameLayout.LayoutParams nlp = (FrameLayout.LayoutParams) h.name.getLayoutParams();
                 nlp.width = lp.width;
-                nlp.topMargin = (int) (135 * d + 14 * d);
+                nlp.topMargin = (int) (135 * d + 8 * d);
                 h.name.setLayoutParams(nlp);
                 break;
             }
@@ -400,7 +400,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         try {
             ctx.startActivity(i);
         } catch (Exception ex) {
-            Toast.makeText(ctx, "Can't open " + e.label, Toast.LENGTH_SHORT).show();
+            Toast.makeText(ctx, ctx.getString(R.string.cant_open, e.label), Toast.LENGTH_SHORT).show();
         }
     }
 

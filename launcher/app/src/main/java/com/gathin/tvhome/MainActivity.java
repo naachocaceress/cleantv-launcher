@@ -94,11 +94,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private static final String PREFS = "tvhome";   // the same file the dock saves into (AppAdapter)
     private static final String PREF_WALLPAPER = "wallpaper";   // "auto", or the file name of a downloaded wallpaper
     private static final String PREF_THEME = "theme";           // Theme.key()
-    private static final int APPLE_COLUMNS = 5;                 // wide tiles per row (APPLE)
+    private static final int TILES_COLUMNS = 5;                 // wide tiles per row (TILES)
     private Theme theme = Theme.DOCK;
     private DockDecoration dockDecoration;
     private ShelfDecoration shelfDecoration;
-    private View androidHero, yourAppsLabel;
+    private View circlesHero, yourAppsLabel;
     private TextView heroTitle, heroSubtitle;
     private TextView btnWifi;
     private float glassTargetX, glassTargetY;
@@ -107,8 +107,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private float density;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private static final int COLOR_WARN = 0xFFFFB340;   // connected, no internet
-    private static final int COLOR_ERROR = 0xFFFF5A52;  // no network
     private static final int[] WIFI_ICONS = {R.drawable.ic_wifi_1, R.drawable.ic_wifi_2, R.drawable.ic_wifi};
     // Refresh the Wi-Fi pill as soon as the connection changes, not on the next minute tick.
     private final ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
@@ -156,7 +154,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         greeting = findViewById(R.id.greeting);
         bgPhoto = findViewById(R.id.bgPhoto);
         btnWifi = findViewById(R.id.btnWifi);
-        androidHero = findViewById(R.id.androidHero);
+        circlesHero = findViewById(R.id.circlesHero);
         heroTitle = findViewById(R.id.heroTitle);
         heroSubtitle = findViewById(R.id.heroSubtitle);
         yourAppsLabel = findViewById(R.id.yourAppsLabel);
@@ -167,7 +165,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         adapter = new AppAdapter(this, this, DOCK_MAX);
         dockDecoration = new DockDecoration(adapter, DOCK_SLOTS, density);
-        shelfDecoration = new ShelfDecoration(APPLE_COLUMNS, density);
+        shelfDecoration = new ShelfDecoration(TILES_COLUMNS, density);
         theme = Theme.from(getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_THEME, Theme.DOCK.key()));
         adapter.setTheme(theme);
         grid.setAdapter(adapter);
@@ -244,7 +242,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     // ---- themes and the grid ---------------------------------------------------------------------
 
-    /** Switches the layout (DOCK, ANDROID or APPLE), remembers it, and starts again from the first app. */
+    /** Switches the layout (DOCK, CIRCLES or TILES), remembers it, and starts again from the first app. */
     private void applyTheme(Theme t) {
         theme = t;
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(PREF_THEME, t.key()).apply();
@@ -281,26 +279,26 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 }
             });
             grid.addItemDecoration(dockDecoration);
-        } else if (theme == Theme.ANDROID) {
+        } else if (theme == Theme.CIRCLES) {
             glm = new AppGridLayoutManager(this, 1, GridLayoutManager.HORIZONTAL);   // one row of round icons
         } else {
-            glm = new AppGridLayoutManager(this, APPLE_COLUMNS);
+            glm = new AppGridLayoutManager(this, TILES_COLUMNS);
             grid.addItemDecoration(shelfDecoration);
         }
         grid.setLayoutManager(glm);
         applyGridPadding();
     }
 
-    /** What the Android theme adds above its row: the focused app's name, big, and the date. The header never changes. */
+    /** What the CIRCLES theme adds above its row: the focused app's name, big, and the date. The header never changes. */
     private void applyChrome() {
-        boolean android = theme == Theme.ANDROID;
-        androidHero.setVisibility(android ? View.VISIBLE : View.GONE);
-        yourAppsLabel.setVisibility(android ? View.VISIBLE : View.GONE);
-        if (android) showAndroidHero(-1);
+        boolean circles = theme == Theme.CIRCLES;
+        circlesHero.setVisibility(circles ? View.VISIBLE : View.GONE);
+        yourAppsLabel.setVisibility(circles ? View.VISIBLE : View.GONE);
+        if (circles) showCirclesHero(-1);
     }
 
     /** The big title over the wallpaper: the focused app, or a greeting when nothing is focused. */
-    private void showAndroidHero(int position) {
+    private void showCirclesHero(int position) {
         String name = position >= 0 ? adapter.labelAt(position) : "";
         heroTitle.setText(name.isEmpty() ? getString(GREETINGS[dayPart()]) : name);
         heroSubtitle.setText(android.text.format.DateFormat.format("EEEE d MMMM", new java.util.Date()));
@@ -308,28 +306,28 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /**
      * Side margins per theme, and the top padding: in DOCK it pushes the dock row to the bottom of the screen (the
-     * cards below hide until you press Down); in ANDROID and APPLE the grid hangs from the bottom so the wallpaper shows
+     * cards below hide until you press Down); in CIRCLES and TILES the grid hangs from the bottom so the wallpaper shows
      * above it. The header (greeting, clock, date, connection, settings) is the same in every theme.
      */
     private void applyGridPadding() {
-        int side = (int) ((theme == Theme.DOCK ? 264 : 0) * density);   // the screen already has a 56dp margin
-        int bottom = (int) ((theme == Theme.DOCK ? 40 : theme == Theme.APPLE ? 24 : 36) * density);
+        int side = (int) ((theme == Theme.DOCK ? 264 : theme == Theme.TILES ? 20 : 0) * density);   // the screen already has a 56dp margin
+        int bottom = (int) ((theme == Theme.DOCK ? 40 : theme == Theme.TILES ? 24 : 36) * density);
         int top;
         if (theme == Theme.DOCK) {
             top = Math.max(0, grid.getHeight() - (int) ((101 + 6 + 12) * density) + (int) (8 * density));
-        } else if (theme == Theme.ANDROID) {
+        } else if (theme == Theme.CIRCLES) {
             top = 0;   // the grid itself is only as tall as the row and sits at the bottom (see below)
         } else {
             // tvOS: the first row (inside the shelf) sits low, the second one peeks in below it.
-            top = Math.max((int) (12 * density), grid.getHeight() - (int) (159 * 1.4f * density));
+            top = Math.max((int) (12 * density), grid.getHeight() - (int) (179 * 1.3f * density));
         }
         if (grid.getPaddingTop() != top || grid.getPaddingLeft() != side || grid.getPaddingBottom() != bottom) {
             grid.setPadding(side, top, side, bottom);
         }
-        // ANDROID: a one-row horizontal grid is laid out from its own top, so rather than a huge top padding the grid
+        // CIRCLES: a one-row horizontal grid is laid out from its own top, so rather than a huge top padding the grid
         // is made exactly as tall as the row and anchored to the bottom of its parent. The other themes fill the parent.
         FrameLayout.LayoutParams glp = (FrameLayout.LayoutParams) grid.getLayoutParams();
-        int wantHeight = theme == Theme.ANDROID ? (int) (104 * density) + bottom : ViewGroup.LayoutParams.MATCH_PARENT;
+        int wantHeight = theme == Theme.CIRCLES ? (int) (104 * density) + bottom : ViewGroup.LayoutParams.MATCH_PARENT;
         if (glp.height != wantHeight || glp.gravity != Gravity.BOTTOM) {
             glp.height = wantHeight;
             glp.gravity = Gravity.BOTTOM;
@@ -347,28 +345,31 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         magnifyDock(-1);
         hideHero();
         hideGlass();
-        if (theme == Theme.ANDROID) showAndroidHero(position);
+        if (theme == Theme.CIRCLES) showCirclesHero(position);
+        if (theme == Theme.TILES) shelfDecoration.setFocusedRow(position / TILES_COLUMNS);
         // Scrolling is done here, at once (no animation), and only here: the grid does no scrolling of its own (see
         // AppGridLayoutManager). The rule is the same for every card of a row, so moving sideways never moves the grid
         // and going back to a row puts it where it was. The list clamps the result at both ends.
         View item = (View) card.getParent();
         grid.post(() -> {
             if (!item.isAttachedToWindow() || lastFocused != position) return;
-            if (theme == Theme.ANDROID) {   // the single row scrolls sideways: keep the focused icon in view
+            if (theme == Theme.CIRCLES) {   // the single row scrolls sideways: keep the focused icon in view
                 int left = grid.getPaddingLeft(), right = grid.getWidth() - grid.getPaddingRight();
                 int dx = item.getRight() > right ? item.getRight() - right : item.getLeft() < left ? item.getLeft() - left : 0;
                 if (dx != 0) grid.scrollBy(dx, 0);
                 return;
             }
             int dy;
-            if (theme == Theme.APPLE) {
+            if (theme == Theme.TILES) {
                 dy = item.getTop() - grid.getPaddingTop();                       // the focused row's top on the shelf line
             } else {   // DOCK: the focused row's bottom on the bottom margin
                 dy = item.getBottom() - (grid.getHeight() - grid.getPaddingBottom());
             }
             if (dy != 0) grid.scrollBy(0, dy);
+            grid.invalidate();   // the TILES plate follows the focused row
         });
     }
+
     // ---- top shelf -------------------------------------------------------------------------------
 
     private void onDockFocused(int position, View card) {
@@ -461,8 +462,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     public boolean onTileVerticalKey(int position, int keyCode) {
-        if (theme == Theme.ANDROID) return keyCode == KeyEvent.KEYCODE_DPAD_DOWN;   // one row: Down stays, Up reaches the header
-        if (theme != Theme.DOCK) return false;   // APPLE is a plain grid: Android's focus search does it
+        if (theme == Theme.CIRCLES) return keyCode == KeyEvent.KEYCODE_DPAD_DOWN;   // one row: Down stays, Up reaches the header
+        if (theme != Theme.DOCK) return false;   // TILES is a plain grid: Android's focus search does it
         int count = adapter.getItemCount();
         int dock = adapter.dockCount();
         int target;
@@ -605,47 +606,74 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
-    // ---- config sidebar --------------------------------------------------------------------------
-    // The Customize button opens a panel on the right edge: the theme and the wallpaper.
+    // ---- settings panel --------------------------------------------------------------------------
+    // The Settings button opens a panel on the right edge with a few big buttons: Theme and Wallpaper open their own
+    // screen inside the panel (Back returns to the buttons), and Android settings opens the system settings directly.
 
     private void showConfigSidebar() {
         final Dialog dialog = new Dialog(this, R.style.Sidebar);
         View panel = getLayoutInflater().inflate(R.layout.sidebar_config, null);
-        LinearLayout rows = panel.findViewById(R.id.rows);
+        final LinearLayout rows = panel.findViewById(R.id.rows);
+        final TextView title = panel.findViewById(R.id.configTitle);
+        final Runnable[] menu = new Runnable[1];
+        final boolean[] inMenu = {true};
 
-        addConfigHeader(rows, getString(R.string.theme_header));
-        addConfigRow(rows, dialog, 0, getString(R.string.theme_dock), theme == Theme.DOCK, true,
-                () -> applyTheme(Theme.DOCK));
-        addConfigRow(rows, dialog, 0, getString(R.string.theme_android), theme == Theme.ANDROID, true,
-                () -> applyTheme(Theme.ANDROID));
-        addConfigRow(rows, dialog, 0, getString(R.string.theme_apple), theme == Theme.APPLE, true,
-                () -> applyTheme(Theme.APPLE));
+        final Runnable themeScreen = () -> {
+            inMenu[0] = false;
+            title.setText(R.string.menu_theme);
+            rows.removeAllViews();
+            addConfigRow(rows, dialog, R.drawable.ic_left, getString(R.string.back), false, false, () -> menu[0].run());
+            addConfigRow(rows, dialog, 0, getString(R.string.theme_dock), theme == Theme.DOCK, true,
+                    () -> applyTheme(Theme.DOCK));
+            addConfigRow(rows, dialog, 0, getString(R.string.theme_circles), theme == Theme.CIRCLES, true,
+                    () -> applyTheme(Theme.CIRCLES));
+            addConfigRow(rows, dialog, 0, getString(R.string.theme_tiles), theme == Theme.TILES, true,
+                    () -> applyTheme(Theme.TILES));
+            rows.getChildAt(1 + theme.ordinal()).requestFocus();
+        };
+        final Runnable wallpaperScreen = () -> {
+            inMenu[0] = false;
+            title.setText(R.string.menu_wallpaper);
+            rows.removeAllViews();
+            addConfigRow(rows, dialog, R.drawable.ic_left, getString(R.string.back), false, false, () -> menu[0].run());
+            addConfigRow(rows, dialog, R.drawable.ic_wallpaper, getString(R.string.wallpaper_new), false, true,
+                    this::fetchWallpaper);
+            if (!wallpapers.files().isEmpty()) {   // stepping through stays open so you can browse
+                addConfigRow(rows, dialog, R.drawable.ic_right, getString(R.string.wallpaper_next), false, false,
+                        () -> stepWallpaper(1));
+                addConfigRow(rows, dialog, R.drawable.ic_left, getString(R.string.wallpaper_prev), false, false,
+                        () -> stepWallpaper(-1));
+            }
+            if (!"auto".equals(wallpaperChoice())) {
+                addConfigRow(rows, dialog, R.drawable.ic_unpin, getString(R.string.wallpaper_remove), false, true,
+                        this::removeWallpaper);
+                addConfigRow(rows, dialog, R.drawable.ic_settings, getString(R.string.wallpaper_auto), false, true,
+                        () -> setWallpaperChoice("auto"));
+            }
+            rows.getChildAt(1).requestFocus();
+        };
+        menu[0] = () -> {
+            inMenu[0] = true;
+            title.setText(R.string.settings_title);
+            rows.removeAllViews();
+            addConfigRow(rows, dialog, R.drawable.ic_theme, getString(R.string.menu_theme), false, false, themeScreen);
+            addConfigRow(rows, dialog, R.drawable.ic_wallpaper, getString(R.string.menu_wallpaper), false, false,
+                    wallpaperScreen);
+            addConfigRow(rows, dialog, R.drawable.ic_settings, getString(R.string.menu_android), false, true,
+                    () -> open(new Intent(Settings.ACTION_SETTINGS)));
+            if (hasInputs()) {   // boxes without HDMI/AV inputs or a tuner don't get this one
+                addConfigRow(rows, dialog, R.drawable.ic_input, getString(R.string.inputs), false, true, this::showInputs);
+            }
+            rows.getChildAt(0).requestFocus();
+        };
+        menu[0].run();
 
-        addConfigHeader(rows, getString(R.string.wallpaper_header));
-        addConfigRow(rows, dialog, R.drawable.ic_pin, getString(R.string.wallpaper_new), false, true, this::fetchWallpaper);
-        if (!wallpapers.files().isEmpty()) {   // stepping through stays open so you can browse
-            addConfigRow(rows, dialog, R.drawable.ic_right, getString(R.string.wallpaper_next), false, false,
-                    () -> stepWallpaper(1));
-            addConfigRow(rows, dialog, R.drawable.ic_left, getString(R.string.wallpaper_prev), false, false,
-                    () -> stepWallpaper(-1));
-        }
-        if (!"auto".equals(wallpaperChoice())) {
-            addConfigRow(rows, dialog, R.drawable.ic_unpin, getString(R.string.wallpaper_remove), false, true,
-                    this::removeWallpaper);
-            addConfigRow(rows, dialog, R.drawable.ic_settings, getString(R.string.wallpaper_auto), false, true,
-                    () -> setWallpaperChoice("auto"));
-        }
-
-        // The Android side: the system settings and the inputs, so nothing is lost from the old top bar.
-        addConfigHeader(rows, getString(R.string.system_header));
-        addSystemRow(rows, dialog, R.drawable.ic_settings, R.string.system_settings, new Intent(Settings.ACTION_SETTINGS));
-        addSystemRow(rows, dialog, R.drawable.ic_wifi, R.string.system_network, new Intent(Settings.ACTION_WIFI_SETTINGS));
-        addSystemRow(rows, dialog, R.drawable.ic_av, R.string.system_display, new Intent(Settings.ACTION_DISPLAY_SETTINGS));
-        addSystemRow(rows, dialog, R.drawable.ic_av, R.string.system_sound, new Intent(Settings.ACTION_SOUND_SETTINGS));
-        if (hasInputs()) {   // boxes without HDMI/AV inputs or a tuner (like a streaming stick) don't get the row
-            addConfigRow(rows, dialog, R.drawable.ic_input, getString(R.string.inputs), false, true, this::showInputs);
-        }
-
+        // Back goes from a screen to the buttons, and from the buttons it closes the panel.
+        dialog.setOnKeyListener((d, keyCode, event) -> {
+            if (keyCode != KeyEvent.KEYCODE_BACK || inMenu[0]) return false;
+            if (event.getAction() == KeyEvent.ACTION_UP) menu[0].run();
+            return true;
+        });
         dialog.setContentView(panel);
         Window w = dialog.getWindow();
         if (w != null) {
@@ -655,34 +683,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             w.setDimAmount(0.45f);
         }
         dialog.show();
-        View selected = rows.getChildAt(1 + theme.ordinal());   // child 0 is the THEME header
-        if (selected != null) selected.requestFocus();
+        rows.getChildAt(0).requestFocus();
     }
-
     private boolean hasInputs() {
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
         if (tim != null) {
             for (TvInputInfo info : tim.getTvInputList()) if (info.isPassthroughInput()) return true;
         }
         return !liveTvPkg.isEmpty() && getPackageManager().getLeanbackLaunchIntentForPackage(liveTvPkg) != null;
-    }
-
-    /** A row that opens a system settings screen; skipped when this box has no screen for it. */
-    private void addSystemRow(LinearLayout rows, Dialog dialog, int iconRes, int titleRes, Intent intent) {
-        if (getPackageManager().resolveActivity(intent, 0) == null) return;
-        addConfigRow(rows, dialog, iconRes, getString(titleRes), false, true, () -> open(intent));
-    }
-
-    private void addConfigHeader(LinearLayout rows, String text) {
-        TextView header = new TextView(this);
-        header.setText(text);
-        header.setTextColor(0x99FFFFFF);
-        header.setTextSize(11f);
-        header.setLetterSpacing(0.14f);
-        header.setTypeface(getResources().getFont(R.font.open_sans));
-        header.setPadding((int) (12 * density), (int) (rows.getChildCount() == 0 ? 6 * density : 20 * density),
-                0, (int) (6 * density));
-        rows.addView(header);
     }
 
     /** A row in the sidebar; a dot marks the selected one. iconRes 0 means no icon. */
@@ -833,57 +841,44 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         setWallpaperChoice("auto");
     }
 
-    /** Shows the Wi-Fi network name on the button when we can read it, otherwise the connection type. */
-    // Signal bars only (no network name, so screenshots stay private); text only when something is wrong.
+    /**
+     * The connection button is just an icon: the Ethernet plug when wired, the Wi-Fi symbol (with signal bars) when on
+     * Wi-Fi, and the same symbols with a slash across them when there is no internet or no network at all.
+     */
     private void updateWifiLabel() {
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         Network net = cm != null ? cm.getActiveNetwork() : null;
         NetworkCapabilities caps = net != null ? cm.getNetworkCapabilities(net) : null;
         if (caps == null) {
-            setWifiPill(R.drawable.ic_wifi_off, getString(R.string.offline), COLOR_ERROR);
+            setConnectionIcon(R.drawable.ic_wifi_off, getString(R.string.offline));
             return;
         }
         boolean online = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
         if (caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
-            setWifiPill(R.drawable.ic_ethernet, online ? getString(R.string.ethernet) : getString(R.string.no_internet),
-                    online ? 0 : COLOR_WARN);
+            setConnectionIcon(online ? R.drawable.ic_ethernet : R.drawable.ic_ethernet_off,
+                    getString(online ? R.string.ethernet : R.string.no_internet));
+            return;
+        }
+        if (!online) {
+            setConnectionIcon(R.drawable.ic_wifi_off, getString(R.string.no_internet));
             return;
         }
         WifiManager wm = getApplicationContext().getSystemService(WifiManager.class);
         WifiInfo info = wm != null ? wm.getConnectionInfo() : null;
         int bars = info != null ? WifiManager.calculateSignalLevel(info.getRssi(), WIFI_ICONS.length) : 0;
-        if (!online) {
-            setWifiPill(WIFI_ICONS[bars], getString(R.string.no_internet), COLOR_WARN);
-            return;
-        }
-        setWifiPill(WIFI_ICONS[bars], getString(R.string.wifi), 0);
+        setConnectionIcon(WIFI_ICONS[bars], getString(R.string.wifi));
     }
 
-    private void setWifiPill(int icon, String label, int alertColor) {
+    private void setConnectionIcon(int icon, String description) {
         btnWifi.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0);
-        btnWifi.setContentDescription(label);
-        // Healthy: a round icon button like Inputs and Settings. Alert: a pill with the status text.
-        boolean iconOnly = alertColor == 0;
-        ViewGroup.LayoutParams lp = btnWifi.getLayoutParams();
-        lp.width = iconOnly ? (int) (42 * density) : ViewGroup.LayoutParams.WRAP_CONTENT;
-        btnWifi.setLayoutParams(lp);
-        btnWifi.setPaddingRelative((int) ((iconOnly ? 10 : 16) * density), 0, (int) ((iconOnly ? 10 : 20) * density), 0);
-        btnWifi.setCompoundDrawablePadding(iconOnly ? 0 : (int) (9 * density));
-        if (iconOnly) {
-            btnWifi.setText("");
-            return;
-        }
-        SpannableString text = new SpannableString("\u25CF  " + label);
-        text.setSpan(new ForegroundColorSpan(alertColor), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        btnWifi.setText(text);
+        btnWifi.setContentDescription(description);
     }
-
     private void open(Intent i) {
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
             startActivity(i);
         } catch (ActivityNotFoundException e) {
-            Toast.makeText(this, "Not available on this TV", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
         }
     }
 

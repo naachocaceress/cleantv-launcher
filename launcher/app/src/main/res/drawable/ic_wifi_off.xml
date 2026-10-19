@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- No network: dimmed Wi-Fi with a slash. -->
+<!-- No internet / no network: the Wi-Fi symbol with a slash across it. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="22dp" android:height="22dp"
     android:viewportWidth="24" android:viewportHeight="24">
-    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.3" android:pathData="M1,9l2,2c4.97,-4.97 13.03,-4.97 18,0l2,-2C16.93,2.93 7.08,2.93 1,9z" />
-    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.3" android:pathData="M5,13l2,2c2.76,-2.76 7.24,-2.76 10,0l2,-2C15.14,9.14 8.87,9.14 5,13z" />
-    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.3" android:pathData="M9,17l3,3 3,-3c-1.65,-1.66 -4.34,-1.66 -6,0z" />
-    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2" android:strokeLineCap="round" android:pathData="M3,3L21,21" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M23.64,7c-0.45,-0.34 -4.93,-4 -11.64,-4 -1.5,0 -2.89,0.19 -4.15,0.48L18.18,13.8 23.64,7zM17.04,15.22L3.27,1.44 2,2.72l2.05,2.06C1.91,5.76 0.59,6.82 0.36,7L12,21.5l0.01,0.01 0.01,-0.01 3.9,-4.86 3.32,3.32 1.27,-1.27 -3.46,-3.46z" />
 </vector>

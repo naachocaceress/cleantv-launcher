@@ -10,9 +10,10 @@
     android:paddingBottom="16dp">
 
     <TextView
+        android:id="@+id/configTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/config_title"
+        android:text="@string/settings_title"
         android:textColor="#FFFFFFFF"
         android:textSize="22sp"
         android:fontFamily="@font/outfit"

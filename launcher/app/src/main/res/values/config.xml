@@ -8,10 +8,12 @@
     <!-- Starting dock, in this order. After that the dock is edited on the TV (hold OK or press Menu on an app)
          and saved on the device. Missing apps are skipped. -->
     <string-array name="dock_apps">
-        <item>com.amazon.firetv.youtube</item>
         <item>com.netflix.ninja</item>
-        <item>com.amazon.firebat</item>
-        <item>com.apple.airplay.amazon.airplay</item>
+        <item>com.amazon.amazonvideo.livingroom</item>   <!-- Prime Video -->
+        <item>com.google.android.youtube.tv</item>
+        <item>com.disney.disneyplus</item>
+        <item>com.crunchyroll.crunchyroid</item>
+        <item>com.stremio.one</item>
     </string-array>
 
     <!-- Apps never shown as tiles (e.g. the Live TV app, which the Inputs menu already covers). -->
@@ -26,6 +28,18 @@
     <!-- The TV's Live TV / tuner app, offered at the end of the Inputs menu. Leave empty to omit. -->
     <string name="live_tv_package" translatable="false">com.amazon.tv.livetv</string>
 
-    <!-- Tiles per row in the grid, and the most apps the dock can hold. -->
+    <!-- Optional: an https link to your own wallpaper list (a JSON array of {"title","credit","url"}), added to the
+         built-in catalog. Leave empty to use only the built-in one. -->
+    <string name="wallpaper_catalog_url" translatable="false"></string>
+
+    <!-- Tiles per row in the grid. -->
     <integer name="columns">4</integer>
+
+    <!-- The most apps the dock can hold (never below columns, capped at 12). -->
+    <integer name="dock_max">8</integer>
+
+    <!-- How close the dock icons sit: the dock area (the grid's width, about 750dp on a TV) is split into this many
+         icon cells and the dock is centred in them. More cells = icons closer together. 9 gives about 83dp between
+         icon centres (icons are 56dp); 8 is roomier, 11 is tight. Never below dock_max, capped at 30. -->
+    <integer name="dock_slots">9</integer>
 </resources>

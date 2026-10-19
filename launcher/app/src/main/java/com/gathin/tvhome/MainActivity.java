@@ -4,9 +4,13 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
@@ -47,6 +51,7 @@ import androidx.dynamicanimation.animation.SpringForce;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -59,6 +64,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** Tiles per row and dock slots (res/values/config.xml, columns). Set in onCreate. */
     static int COLUMNS = 4;
+    /** Most apps the dock can hold (res/values/config.xml, dock_max). Set in onCreate. */
+    static int DOCK_MAX = 8;
+    /** Dock cells across the screen; the dock sits centred in them (res/values/config.xml, dock_slots). */
+    static int DOCK_SLOTS = 9;
     private static final long MINUTE_MS = 60_000L;
     private String liveTvPkg;
 
@@ -79,7 +88,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean heroShown;
     private TextView greeting;
     private ImageView bgPhoto;
-    private int bgRes;
+    private WallpaperStore wallpapers;
+    /** What the background shows now: "res:<id>" (time of day) or "file:<name>" (a downloaded wallpaper). */
+    private String bgKey = "";
+    private static final String PREFS = "tvhome";   // the same file the dock saves into (AppAdapter)
+    private static final String PREF_WALLPAPER = "wallpaper";   // "auto", or the file name of a downloaded wallpaper
     private TextView btnWifi;
     private SpringAnimation springX, springY;
     private float glassTargetX, glassTargetY;
@@ -118,7 +131,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         setContentView(R.layout.activity_main);
         density = getResources().getDisplayMetrics().density;
         COLUMNS = Math.max(1, getResources().getInteger(R.integer.columns));
+        DOCK_MAX = Math.min(12, Math.max(COLUMNS, getResources().getInteger(R.integer.dock_max)));
+        DOCK_SLOTS = Math.min(30, Math.max(DOCK_MAX, getResources().getInteger(R.integer.dock_slots)));
         liveTvPkg = getString(R.string.live_tv_package).trim();
+        wallpapers = new WallpaperStore(this);
 
         root = findViewById(R.id.root);
         glass = findViewById(R.id.glass);
@@ -136,13 +152,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnWifi = findViewById(R.id.btnWifi);
 
         grid = findViewById(R.id.grid);
-        // One span unit per cell of any dock size 1..COLUMNS: the dock row splits evenly, grid rows are COLUMNS wide.
-        final int spans = lcmUpTo(COLUMNS);
+        // The row is 2 * DOCK_SLOTS units wide (half-icon units, so the dock stays exactly centred for any number of
+        // icons). Each dock icon takes 2 units; the first and last also take the empty units on their side (the
+        // decoration pushes the icon back into its own 2 units), which centres the dock and fills the row so the
+        // grid starts on the next one. Grid tiles are COLUMNS per row.
+        final int spans = lcm(COLUMNS, 2 * DOCK_SLOTS);
         GridLayoutManager glm = new GridLayoutManager(this, spans);
         glm.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
             @Override
             public int getSpanSize(int position) {
-                return adapter.isDocked(position) ? spans / adapter.dockCount() : spans / COLUMNS;
+                if (!adapter.isDocked(position)) return spans / COLUMNS;
+                int n = adapter.dockCount();
+                int pad = dockLead(n);   // empty units on each side
+                return spans / (2 * DOCK_SLOTS) * (2 + (position == 0 || position == n - 1 ? pad : 0));
             }
         });
         grid.setLayoutManager(glm);
@@ -151,8 +173,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         grid.setLayoutAnimation(new LayoutAnimationController(
                 AnimationUtils.loadAnimation(this, R.anim.tile_enter), 0.06f));
-        adapter = new AppAdapter(this, this, COLUMNS);
-        grid.addItemDecoration(new DockDecoration(adapter, COLUMNS, density));
+        adapter = new AppAdapter(this, this, DOCK_MAX);
+        grid.addItemDecoration(new DockDecoration(adapter, DOCK_SLOTS, density));
         grid.setAdapter(adapter);
 
         // tvOS layout: push the dock row to the bottom of the screen; the grid hides below until you press Down.
@@ -176,15 +198,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         });
 
-        // Liquid feel: soft springs on the highlight's position.
+        // The highlight glides to the next tile: fast and critically damped, so it never overshoots or wobbles
+        // (it used to be 260 / 0.58, a bouncy spring).
         springX = new SpringAnimation(glass, DynamicAnimation.TRANSLATION_X);
         springY = new SpringAnimation(glass, DynamicAnimation.TRANSLATION_Y);
         for (SpringAnimation s : new SpringAnimation[]{springX, springY}) {
-            s.setSpring(new SpringForce().setStiffness(260f).setDampingRatio(0.58f));
+            s.setSpring(new SpringForce().setStiffness(1200f).setDampingRatio(SpringForce.DAMPING_RATIO_NO_BOUNCY));
         }
 
+        View btnWallpaper = findViewById(R.id.btnWallpaper);
         View btnInputs = findViewById(R.id.btnInputs);
         View btnSettings = findViewById(R.id.btnSettings);
+        btnWallpaper.setOnClickListener(v -> showHomeScreenMenu(v));
         btnInputs.setOnClickListener(v -> showInputs());
         btnWifi.setOnClickListener(v -> open(new Intent(Settings.ACTION_WIFI_SETTINGS)));
         btnSettings.setOnClickListener(v -> open(new Intent(Settings.ACTION_SETTINGS)));
@@ -202,9 +227,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 showHomeScreenMenu(v);
                 return true;
             }
-            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v.getId() == R.id.btnInputs) return true;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v.getId() == R.id.btnWallpaper) return true;
             return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == R.id.btnSettings;
         };
+        btnWallpaper.setOnKeyListener(pillKeys);
         btnInputs.setOnKeyListener(pillKeys);
         btnWifi.setOnKeyListener(pillKeys);
         btnSettings.setOnKeyListener(pillKeys);
@@ -401,14 +427,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             int col = (position - dock) % COLUMNS;
             if (position - dock < COLUMNS) {
                 if (dock == 0) return false;
-                target = Math.min(col, dock - 1);          // first grid row: up to the dock
+                // first grid row: up to the dock icon nearest above this column (the dock is centred and narrower)
+                int nearest = Math.round(((col + 0.5f) * 2 * DOCK_SLOTS / COLUMNS - dockLead(dock) - 1f) / 2f);
+                target = Math.max(0, Math.min(dock - 1, nearest));
             } else {
                 target = position - COLUMNS;
             }
         } else {
             if (position < dock) {
                 if (count == dock) return true;            // nothing below the dock
-                target = Math.min(dock + position, count - 1);
+                // down from a dock icon: the grid column under it
+                int col = (int) ((dockLead(dock) + 2 * position + 1f) * COLUMNS / (2 * DOCK_SLOTS));
+                target = Math.min(dock + Math.min(col, COLUMNS - 1), count - 1);
             } else {
                 int lastRowStart = dock + ((count - 1 - dock) / COLUMNS) * COLUMNS;
                 if (position >= lastRowStart) return true; // already on the last row: stay put
@@ -419,14 +449,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         return true;
     }
 
-    private static int lcmUpTo(int n) {
-        int l = 1;
-        for (int i = 2; i <= n; i++) {
-            int a = l, b = i;
-            while (b != 0) { int t = a % b; a = b; b = t; }
-            l = l / a * i;
-        }
-        return l;
+    private static int lcm(int x, int y) {
+        int a = x, b = y;
+        while (b != 0) { int t = a % b; a = b; b = t; }
+        return x / a * y;
+    }
+
+    /** Empty half-icon units on each side of a dock of n icons, so the dock sits centred in DOCK_SLOTS icon cells. */
+    static int dockLead(int n) {
+        return Math.max(0, DOCK_SLOTS - n);
     }
 
     // ---- dock editing ----------------------------------------------------------------------------
@@ -486,7 +517,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         rows.getChildAt(0).requestFocus();
     }
 
-    // Escape hatch on the TV itself: Menu (or hold OK) on the Settings button switches the Home redirect.
+    // Menu (or hold OK) on the Settings button: wallpapers.
     private void showHomeScreenMenu(View anchor) {
         View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
         LinearLayout rows = panel.findViewById(R.id.rows);
@@ -496,12 +527,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         popup.setOutsideTouchable(true);
         popup.setAnimationStyle(0);
         popup.setElevation(0f);
-        boolean on = HomeRedirectService.isEnabled(this);
-        addInputRow(rows, popup, R.drawable.ic_settings, getString(on ? R.string.use_amazon_home : R.string.use_this_home), -1, () -> {
-            if (!HomeRedirectService.setEnabled(this, !on)) {
-                Toast.makeText(this, R.string.redirect_needs_permission, Toast.LENGTH_LONG).show();
-            }
-        });
+        addInputRow(rows, popup, R.drawable.ic_pin, getString(R.string.wallpaper_new), -1, this::fetchWallpaper);
+        if (!wallpapers.files().isEmpty()) {
+            addInputRow(rows, popup, R.drawable.ic_right, getString(R.string.wallpaper_next), -1, () -> stepWallpaper(1));
+            addInputRow(rows, popup, R.drawable.ic_left, getString(R.string.wallpaper_prev), -1, () -> stepWallpaper(-1));
+        }
+        if (!"auto".equals(wallpaperChoice())) {
+            addInputRow(rows, popup, R.drawable.ic_unpin, getString(R.string.wallpaper_remove), -1, this::removeWallpaper);
+            addInputRow(rows, popup, R.drawable.ic_settings, getString(R.string.wallpaper_auto), -1,
+                    () -> setWallpaperChoice("auto"));
+        }
         popup.showAsDropDown(anchor, anchor.getWidth() - width, (int) (10 * density), Gravity.START);
         rows.getChildAt(0).requestFocus();
     }
@@ -573,20 +608,74 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         greeting.setText(name.isEmpty() ? text : text + ", " + name);
     }
 
+    private String wallpaperChoice() {
+        return getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_WALLPAPER, "auto");
+    }
+
+    private void setWallpaperChoice(String choice) {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(PREF_WALLPAPER, choice).apply();
+        updateBackground();
+    }
+
+    /** Shows the chosen downloaded wallpaper, or the time-of-day photo when the choice is "auto" (or the file is gone). */
     private void updateBackground() {
-        int res = BACKGROUNDS[dayPart()];
-        if (res == bgRes) return;
-        boolean first = bgRes == 0;
-        bgRes = res;
+        String choice = wallpaperChoice();
+        File file = "auto".equals(choice) ? null : new File(wallpapers.dir(), choice);
+        Drawable next = null;
+        String key = null;
+        if (file != null && file.exists()) {
+            Bitmap bm = BitmapFactory.decodeFile(file.getPath());
+            if (bm != null) {
+                next = new BitmapDrawable(getResources(), bm);
+                key = "file:" + choice;
+            }
+        }
+        if (next == null) {
+            int res = BACKGROUNDS[dayPart()];
+            key = "res:" + res;
+            if (key.equals(bgKey)) return;
+            next = getDrawable(res);
+        } else if (key.equals(bgKey)) {
+            return;
+        }
+        boolean first = bgKey.isEmpty();
+        bgKey = key;
+        final Drawable shown = next;
         if (first) {
-            bgPhoto.setImageResource(res);
+            bgPhoto.setImageDrawable(shown);
             return;
         }
         // Fade through black so the swap isn't a jump cut.
         bgPhoto.animate().alpha(0f).setDuration(600).withEndAction(() -> {
-            bgPhoto.setImageResource(res);
+            bgPhoto.setImageDrawable(shown);
             bgPhoto.animate().alpha(1f).setDuration(900);
         });
+    }
+
+    // ---- wallpapers (Menu, or hold OK, on the Settings button) -----------------------------------
+
+    private void fetchWallpaper() {
+        Toast.makeText(this, R.string.wallpaper_searching, Toast.LENGTH_SHORT).show();
+        wallpapers.fetchNew((file, message) -> {
+            if (file != null) setWallpaperChoice(file.getName());
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        });
+    }
+
+    /** Cycles automatic -> each downloaded wallpaper -> automatic. */
+    private void stepWallpaper(int delta) {
+        List<String> order = new ArrayList<>();
+        order.add("auto");
+        for (File f : wallpapers.files()) order.add(f.getName());
+        int next = Math.floorMod(Math.max(0, order.indexOf(wallpaperChoice())) + delta, order.size());
+        setWallpaperChoice(order.get(next));
+        Toast.makeText(this, next == 0 ? getString(R.string.wallpaper_auto_toast)
+                : wallpapers.credit(new File(wallpapers.dir(), order.get(next))), Toast.LENGTH_LONG).show();
+    }
+
+    private void removeWallpaper() {
+        wallpapers.delete(new File(wallpapers.dir(), wallpaperChoice()));
+        setWallpaperChoice("auto");
     }
 
     /** Shows the Wi-Fi network name on the button when we can read it, otherwise the connection type. */

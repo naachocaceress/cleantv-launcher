@@ -31,3 +31,12 @@ under the SIL Open Font License.
 The dock icons for YouTube, Netflix, Prime Video and AirPlay are trademarks of their owners and are not in
 this repo. `tools/make_dock_icons.py` draws them on your machine. The Prime Video wordmark comes from
 [Simple Icons](https://simpleicons.org) (CC0).
+
+## Dock icons and wallpapers (this fork)
+
+- **Dock icons.** `tools/make_dock_icons.py` draws a rounded-square tile per app on your machine; the brand marks it
+  uses come from the [Dashboard Icons](https://github.com/homarr-labs/dashboard-icons) pack (Apache-2.0 for the pack's
+  code; each mark remains the trademark of its owner). The tiles are not committed.
+- **Wallpapers.** None are bundled beyond the original Unsplash photos. `tools/make_wallpaper_catalog.py` builds
+  `assets/wallpapers.json`, a list of links to freely licensed pictures on [Wikimedia Commons](https://commons.wikimedia.org)
+  (CC0, public domain, CC BY, CC BY-SA). The launcher downloads one only when asked and shows its author and licence.

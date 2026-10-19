@@ -16,7 +16,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
-import android.view.animation.OvershootInterpolator;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -50,30 +50,42 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         void onTileMenu(int position, View card);
     }
 
-    // Optional square icons, drawn locally by tools/make_dock_icons.py and kept out of git (they are trademarked
-    // logos). Looked up by name so the app builds without them; missing ones fall back to the app's own icon.
-    private static final Map<String, String> DOCK_ICONS = new HashMap<>();
+    // Square dock art (res/drawable-nodpi/dock_*.png), drawn locally by tools/make_dock_icons.py and kept out of git
+    // (the logos are trademarks). Looked up by name so the app builds without them; apps without art show their own icon.
+    private static final Map<String, String> GLYPHS = new HashMap<>();
     static {
-        DOCK_ICONS.put("com.amazon.firetv.youtube", "dock_youtube");
-        DOCK_ICONS.put("com.netflix.ninja", "dock_netflix");
-        DOCK_ICONS.put("com.amazon.firebat", "dock_prime");
-        DOCK_ICONS.put("com.apple.airplay.amazon.airplay", "dock_airplay");
+        GLYPHS.put("com.netflix.ninja", "dock_netflix");
+        GLYPHS.put("com.amazon.amazonvideo.livingroom", "dock_prime");
+        GLYPHS.put("com.amazon.firebat", "dock_prime");
+        GLYPHS.put("com.google.android.youtube.tv", "dock_youtube");
+        GLYPHS.put("com.amazon.firetv.youtube", "dock_youtube");
+        GLYPHS.put("com.disney.disneyplus", "dock_disney");
+        GLYPHS.put("com.crunchyroll.crunchyroid", "dock_crunchyroll");
+        GLYPHS.put("com.stremio.one", "dock_stremio");
+        GLYPHS.put("org.xbmc.kodi", "dock_kodi");
+        GLYPHS.put("com.spotify.tv.android", "dock_spotify");
+        GLYPHS.put("com.plexapp.android", "dock_plex");
+        GLYPHS.put("org.jellyfin.androidtv", "dock_jellyfin");
+        GLYPHS.put("tv.twitch.android.app", "dock_twitch");
+        GLYPHS.put("com.wbd.stream", "dock_max");
+        GLYPHS.put("com.apple.atve.androidtv.appletv", "dock_appletv");
+        GLYPHS.put("com.cbs.ott", "dock_paramount");
     }
 
     static final class Entry {
         final String label;
         final ComponentName component;
         final String pkg;
-        /** Square dock art, or null: then the app's own icon sits on a graphite tile. */
-        final Drawable square;
+        /** Logo-only art, or null: then the app's own icon is shown. */
+        final Drawable glyph;
         final Drawable icon;
         int ambient;
 
-        Entry(String label, ComponentName component, Drawable square, Drawable icon) {
+        Entry(String label, ComponentName component, Drawable glyph, Drawable icon) {
             this.label = label;
             this.component = component;
             this.pkg = component.getPackageName();
-            this.square = square;
+            this.glyph = glyph;
             this.icon = icon;
         }
     }
@@ -121,11 +133,11 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             if (!seen.add(pkg)) continue;
             Drawable icon = ri.loadIcon(pm);
             String label = String.valueOf(ri.loadLabel(pm));
-            String squareName = DOCK_ICONS.get(pkg);
-            int square = squareName == null ? 0
-                    : ctx.getResources().getIdentifier(squareName, "drawable", ctx.getPackageName());
+            String glyphName = GLYPHS.get(pkg);
+            int glyph = glyphName == null ? 0
+                    : ctx.getResources().getIdentifier(glyphName, "drawable", ctx.getPackageName());
             fresh.add(new Entry(label, new ComponentName(pkg, ri.activityInfo.name),
-                    square != 0 ? ctx.getDrawable(square) : null, icon));
+                    glyph != 0 ? ctx.getDrawable(glyph) : null, icon));
         }
         Collections.sort(fresh, (a, b) -> {
             int fa = pinned.indexOf(a.pkg), fb = pinned.indexOf(b.pkg);
@@ -209,17 +221,16 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         h.card.setScaleX(1f);
         h.card.setScaleY(1f);
         h.card.setTranslationY(0f);
+        // Icon only: the dock art (or the app's own icon) fills the rounded square, nothing behind it.
         h.shadow.setVisibility(View.VISIBLE);
         h.shadow.setScaleX(1f);
         h.shadow.setScaleY(1f);
         h.shadow.setTranslationY(0f);
         h.label.setVisibility(View.GONE);
-        boolean art = e.square != null;
-        h.card.setBackground(art ? null : ctx.getDrawable(R.drawable.dock_tile_bg));
-        h.banner.setImageDrawable(e.square);
-        h.banner.setVisibility(art ? View.VISIBLE : View.GONE);
-        h.icon.setImageDrawable(art ? null : e.icon);
-        h.icon.setVisibility(art ? View.GONE : View.VISIBLE);
+        h.card.setBackground(null);
+        h.banner.setVisibility(View.GONE);
+        h.icon.setImageDrawable(e.glyph != null ? e.glyph : e.icon);
+        h.icon.setVisibility(View.VISIBLE);
         h.card.setOnClickListener(v -> launch(e));
         h.card.setOnLongClickListener(v -> {
             int pos = h.getBindingAdapterPosition();
@@ -253,7 +264,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     int ambientColorAt(int position) {
         if (position < 0 || position >= items.size()) return 0xFF444444;
         Entry e = items.get(position);
-        if (e.ambient == 0) e.ambient = vividColor(e.square != null ? e.square : e.icon);
+        if (e.ambient == 0) e.ambient = vividColor(e.glyph != null ? e.glyph : e.icon);
         return e.ambient;
     }
 
@@ -344,9 +355,10 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 boolean inDock = owner.isDocked(getBindingAdapterPosition());
                 float s = focused ? FOCUS_SCALE : 1.0f;
                 if (!inDock) {
+                    // Plain ease-out, no overshoot: grid tiles used to pop with a bounce when focused.
                     view.animate().scaleX(s).scaleY(s)
-                            .setDuration(focused ? 260 : 180)
-                            .setInterpolator(new OvershootInterpolator(focused ? 1.6f : 0f))
+                            .setDuration(focused ? 140 : 100)
+                            .setInterpolator(new DecelerateInterpolator())
                             .start();
                 }
                 name.animate().alpha(focused ? 1f : 0f)

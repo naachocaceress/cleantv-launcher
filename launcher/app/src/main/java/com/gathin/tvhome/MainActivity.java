@@ -1,6 +1,7 @@
 package com.gathin.tvhome;
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
@@ -34,6 +35,8 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.view.Window;
+import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -90,6 +93,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private String bgKey = "";
     private static final String PREFS = "tvhome";   // the same file the dock saves into (AppAdapter)
     private static final String PREF_WALLPAPER = "wallpaper";   // "auto", or the file name of a downloaded wallpaper
+    private static final String PREF_THEME = "theme";           // Theme.key()
+    private static final int ANDROID_COLUMNS = 5;               // banner cards per row
+    private static final int APPLE_COLUMNS = 6;                 // large icons per row
+    private Theme theme = Theme.DOCK;
+    private DockDecoration dockDecoration;
     private TextView btnWifi;
     private float glassTargetX, glassTargetY;
     private boolean glassShown;
@@ -148,75 +156,33 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnWifi = findViewById(R.id.btnWifi);
 
         grid = findViewById(R.id.grid);
-        // The row is 2 * DOCK_SLOTS units wide (half-icon units, so the dock stays exactly centred for any number of
-        // icons). Each dock icon takes 2 units; the first and last also take the empty units on their side (the
-        // decoration pushes the icon back into its own 2 units), which centres the dock and fills the row so the
-        // grid starts on the next one. Grid tiles are COLUMNS per row.
-        final int spans = lcm(COLUMNS, 2 * DOCK_SLOTS);
-        GridLayoutManager glm = new GridLayoutManager(this, spans);
-        glm.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
-            @Override
-            public int getSpanSize(int position) {
-                if (!adapter.isDocked(position)) return spans / COLUMNS;
-                int n = adapter.dockCount();
-                int pad = dockLead(n);   // empty units on each side
-                return spans / (2 * DOCK_SLOTS) * (2 + (position == 0 || position == n - 1 ? pad : 0));
-            }
-        });
-        grid.setLayoutManager(glm);
         grid.setHasFixedSize(true);
         grid.setItemAnimator(null);
 
         adapter = new AppAdapter(this, this, DOCK_MAX);
-        grid.addItemDecoration(new DockDecoration(adapter, DOCK_SLOTS, density));
+        dockDecoration = new DockDecoration(adapter, DOCK_SLOTS, density);
+        theme = Theme.from(getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_THEME, Theme.DOCK.key()));
+        adapter.setTheme(theme);
         grid.setAdapter(adapter);
+        configureGrid();
 
-        // tvOS layout: push the dock row to the bottom of the screen; the grid hides below until you press Down.
-        grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
-            int h = b - t;
-            int dockRow = (int) ((101 + 6 + 12) * density);   // item height plus DockDecoration offsets
-            int want = Math.max(0, h - dockRow + (int) (8 * density));
-            if (grid.getPaddingTop() != want) {
-                grid.setPadding(grid.getPaddingLeft(), want, grid.getPaddingRight(), grid.getPaddingBottom());
-            }
-        });
+        // Keep the grid's padding right for the theme (in DOCK it also pushes the dock row to the bottom).
+        grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> applyGridPadding());
 
-        // Keep the glass glued to its tile while the grid scrolls.
-        grid.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
-                if (!glassShown) return;
-                glassTargetY -= dy;
-                glass.setTranslationY(glassTargetY);
-            }
-        });
-
-        View btnWallpaper = findViewById(R.id.btnWallpaper);
-        View btnInputs = findViewById(R.id.btnInputs);
+        // The top bar has two buttons: the connection (Wi-Fi, Ethernet or offline, as it is right now) and Settings,
+        // which opens the launcher's own panel (theme, wallpaper) with the Android settings inside it.
         View btnSettings = findViewById(R.id.btnSettings);
-        btnWallpaper.setOnClickListener(v -> showHomeScreenMenu(v));
-        btnInputs.setOnClickListener(v -> showInputs());
         btnWifi.setOnClickListener(v -> open(new Intent(Settings.ACTION_WIFI_SETTINGS)));
-        btnSettings.setOnClickListener(v -> open(new Intent(Settings.ACTION_SETTINGS)));
-        btnSettings.setOnLongClickListener(v -> {
-            showHomeScreenMenu(v);
-            return true;
-        });
+        btnSettings.setOnClickListener(v -> showConfigSidebar());
 
         // Keep focus on the top bar at its ends and at the top: Android's focus finder would otherwise
         // jump to a tile far below when there is nothing in that direction.
         View.OnKeyListener pillKeys = (v, keyCode, event) -> {
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
-            if (keyCode == KeyEvent.KEYCODE_MENU && v.getId() == R.id.btnSettings) {
-                showHomeScreenMenu(v);
-                return true;
-            }
-            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v.getId() == R.id.btnWallpaper) return true;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v.getId() == R.id.btnWifi) return true;
             return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == R.id.btnSettings;
         };
-        btnWallpaper.setOnKeyListener(pillKeys);
-        btnInputs.setOnKeyListener(pillKeys);
         btnWifi.setOnKeyListener(pillKeys);
         btnSettings.setOnKeyListener(pillKeys);
 
@@ -268,7 +234,70 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Home screen: Back goes nowhere.
     }
 
-    // ---- glass highlight -------------------------------------------------------------------------
+    // ---- themes and the grid ---------------------------------------------------------------------
+
+    /** Switches the layout (DOCK, ANDROID or APPLE), remembers it, and starts again from the first app. */
+    private void applyTheme(Theme t) {
+        theme = t;
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(PREF_THEME, t.key()).apply();
+        movingPkg = null;
+        hideHero();
+        hideGlass();
+        adapter.setTheme(t);
+        configureGrid();
+        lastFocused = 0;
+        grid.scrollToPosition(0);
+        grid.post(() -> focusTile(0));
+    }
+
+    /** Layout manager, spans and decoration for the current theme. */
+    private void configureGrid() {
+        if (dockDecoration != null) grid.removeItemDecoration(dockDecoration);
+        GridLayoutManager glm;
+        if (theme == Theme.DOCK) {
+            // The row is 2 * DOCK_SLOTS units wide (half-icon units, so the dock stays exactly centred for any number
+            // of icons). Each dock icon takes 2 units; the first and last also take the empty units on their side
+            // (the decoration pushes the icon back into its own 2 units), which centres the dock and fills the row so
+            // the cards start on the next one. Banner cards are COLUMNS per row.
+            final int spans = lcm(COLUMNS, 2 * DOCK_SLOTS);
+            glm = new AppGridLayoutManager(this, spans);
+            glm.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
+                @Override
+                public int getSpanSize(int position) {
+                    if (!adapter.isDocked(position)) return spans / COLUMNS;
+                    int n = adapter.dockCount();
+                    int pad = dockLead(n);   // empty units on each side
+                    return spans / (2 * DOCK_SLOTS) * (2 + (position == 0 || position == n - 1 ? pad : 0));
+                }
+            });
+            grid.addItemDecoration(dockDecoration);
+        } else {
+            glm = new AppGridLayoutManager(this, theme == Theme.ANDROID ? ANDROID_COLUMNS : APPLE_COLUMNS);
+        }
+        grid.setLayoutManager(glm);
+        applyGridPadding();
+    }
+
+    /**
+     * Side margins per theme, and the top padding: in DOCK it pushes the dock row to the bottom of the screen (the
+     * cards below hide until you press Down); in the other themes the grid simply starts under the top bar.
+     */
+    private void applyGridPadding() {
+        int side = (int) ((theme == Theme.DOCK ? 264 : 0) * density);   // the screen already has a 56dp margin
+        int bottom = theme == Theme.DOCK ? (int) (40 * density) : (int) (32 * density);
+        int top;
+        if (theme == Theme.DOCK) {
+            top = Math.max(0, grid.getHeight() - (int) ((101 + 6 + 12) * density) + (int) (8 * density));
+        } else {
+            // Android and Apple hang from the bottom of the screen: two rows fit above the bottom margin and the
+            // wallpaper shows above them. More rows scroll in as you go down.
+            int rowDp = theme == Theme.ANDROID ? 137 : 144;   // card + the item's padding / the icon and its name
+            top = Math.max((int) (12 * density), grid.getHeight() - (int) (2 * rowDp * density) - bottom);
+        }
+        if (grid.getPaddingTop() != top || grid.getPaddingLeft() != side || grid.getPaddingBottom() != bottom) {
+            grid.setPadding(side, top, side, bottom);
+        }
+    }
 
     @Override
     public void onTileFocused(int position, View card) {
@@ -278,34 +307,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return;
         }
         magnifyDock(-1);
-        // Tile rect in root coordinates, using layout positions (ignores the scale animation).
-        Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
-        root.offsetDescendantRectToMyCoords(card, r);
-        float pad = 6f * density;        // matches GlassView's glow inset
-        float w = card.getWidth() * AppAdapter.FOCUS_SCALE + 2 * pad;
-        float h = card.getHeight() * AppAdapter.FOCUS_SCALE + 2 * pad;
-        float x = r.exactCenterX() - w / 2f;
-        float y = r.exactCenterY() - h / 2f;
-
-        ViewGroup.LayoutParams lp = glass.getLayoutParams();
-        if (lp.width != (int) w || lp.height != (int) h) {
-            lp.width = (int) w;
-            lp.height = (int) h;
-            glass.setLayoutParams(lp);
-            glass.setRadius(Math.min(card.getWidth(), card.getHeight()) * AppAdapter.CORNER_RATIO * AppAdapter.FOCUS_SCALE + pad);
-        }
-        glassTargetX = x;
-        glassTargetY = y;
-        // No transitions: the highlight is simply where the focus is.
-        glass.setTranslationX(x);
-        glass.setTranslationY(y);
-        glass.setAlpha(1f);
-        glassShown = true;
-        View item = (View) card.getParent();
         hideHero();
-        // Scroll just enough so the whole glass (not only the tile) is visible, at once.
-        Rect want = new Rect(0, -(int) pad * 2, item.getWidth(), item.getHeight() + (int) pad);
-        grid.requestChildRectangleOnScreen(item, want, true);
+        hideGlass();
+        // The focused row always rests with its bottom edge on the grid's bottom margin, at once (no animated scroll).
+        // The same rule for every card of a row means moving sideways never moves the grid, and going back to a row
+        // puts it where it was. The grid does no scrolling of its own (see AppGridLayoutManager), so this is the only
+        // scroll; the list clamps it at both ends (so the first rows of ANDROID and APPLE stay hanging from the bottom).
+        View item = (View) card.getParent();
+        grid.post(() -> {
+            if (!item.isAttachedToWindow() || lastFocused != position) return;
+            int dy = item.getBottom() - (grid.getHeight() - grid.getPaddingBottom());
+            if (dy != 0) grid.scrollBy(0, dy);
+        });
     }
 
     // ---- top shelf -------------------------------------------------------------------------------
@@ -447,7 +460,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     public void onTileMenu(int position, View card) {
         String pkg = adapter.pkgAt(position);
         boolean docked = adapter.isDocked(position);
-        int dock = adapter.dockCount();
+        boolean dockTheme = theme == Theme.DOCK;
         View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
         LinearLayout rows = panel.findViewById(R.id.rows);
         int width = (int) (220 * density);
@@ -457,14 +470,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         popup.setAnimationStyle(0);
         popup.setElevation(0f);
 
-        addInputRow(rows, popup, R.drawable.ic_move, getString(R.string.move), -1, () -> startMove(pkg));
-        if (docked) {
-            addInputRow(rows, popup, R.drawable.ic_unpin, getString(R.string.unpin_from_dock), -1, () -> {
+        // Only dock apps can be reordered (that is what pinning is for); the other apps stay alphabetical.
+        if (docked) addInputRow(rows, popup, R.drawable.ic_move, getString(R.string.move), -1, () -> startMove(pkg));
+        if (adapter.isPinned(pkg)) {
+            addInputRow(rows, popup, R.drawable.ic_unpin,
+                    getString(dockTheme ? R.string.unpin_from_dock : R.string.unpin_from_front), -1, () -> {
                 adapter.unpin(pkg);
                 focusAfterLayout(pkg);
             });
         } else {
-            addInputRow(rows, popup, R.drawable.ic_pin, getString(R.string.pin_to_dock), -1, () -> {
+            addInputRow(rows, popup, R.drawable.ic_pin,
+                    getString(dockTheme ? R.string.pin_to_dock : R.string.pin_to_front), -1, () -> {
                 if (adapter.pin(pkg)) focusAfterLayout(pkg);
                 else Toast.makeText(this, R.string.dock_full, Toast.LENGTH_SHORT).show();
             });
@@ -479,6 +495,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         float top = docked ? r.bottom - r.height() * DOCK_MAGNIFY - DOCK_LIFT_DP * density : r.top;
         int x = (int) (r.exactCenterX() - width / 2f);
         int y = (int) (top - 12 * density - panel.getMeasuredHeight());
+        if (y < 0) y = (int) (r.bottom + 12 * density);   // no room above (top row): open below the tile
         heroName.animate().alpha(0f).setDuration(120).start();
         popup.setOnDismissListener(() -> {
             if (adapter.isDocked(lastFocused) && heroShown) heroName.animate().alpha(1f).setDuration(160).start();
@@ -496,8 +513,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     // ---- moving apps -----------------------------------------------------------------------------
-    // Move from an app's menu (hold OK), then: Left/Right reorder; in the dock Down drops the app into the grid, in the
-    // grid's first row Up pins it to the dock; OK or Back finishes.
+    // Move is only for dock apps: from the app's menu (hold OK), Left/Right slide it along the dock; OK or Back finishes.
 
     private String movingPkg;
 
@@ -521,7 +537,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     public boolean onMoveKey(int position, int keyCode) {
         String pkg = movingPkg;
         if (pkg == null) return false;
-        boolean docked = adapter.isDocked(position);
         switch (keyCode) {
             case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_ENTER:
@@ -529,53 +544,112 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 movingPkg = null;
                 return true;
             case KeyEvent.KEYCODE_DPAD_LEFT:
-            case KeyEvent.KEYCODE_DPAD_RIGHT: {
-                int delta = keyCode == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1;
-                if (docked) adapter.move(pkg, delta);
-                else adapter.moveInGrid(pkg, delta);
-                break;
-            }
-            case KeyEvent.KEYCODE_DPAD_DOWN:
-                if (docked) adapter.unpin(pkg);                      // dock -> grid
-                else adapter.moveInGrid(pkg, COLUMNS);               // one row down
-                break;
-            case KeyEvent.KEYCODE_DPAD_UP:
-                if (docked) return true;
-                if (position - adapter.dockCount() < COLUMNS) {      // first grid row -> dock
-                    if (!adapter.pin(pkg)) Toast.makeText(this, R.string.dock_full, Toast.LENGTH_SHORT).show();
-                } else {
-                    adapter.moveInGrid(pkg, -COLUMNS);               // one row up
+            case KeyEvent.KEYCODE_DPAD_RIGHT:
+                if (adapter.isDocked(position)) {
+                    adapter.move(pkg, keyCode == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1);
+                    focusAfterLayout(pkg);
                 }
-                break;
+                return true;
             default:
                 return true;   // swallow everything else while moving
         }
-        focusAfterLayout(pkg);
-        return true;
     }
 
-    // Menu (or hold OK) on the Settings button: wallpapers.
-    private void showHomeScreenMenu(View anchor) {
-        View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
+    // ---- config sidebar --------------------------------------------------------------------------
+    // The Customize button opens a panel on the right edge: the theme and the wallpaper.
+
+    private void showConfigSidebar() {
+        final Dialog dialog = new Dialog(this, R.style.Sidebar);
+        View panel = getLayoutInflater().inflate(R.layout.sidebar_config, null);
         LinearLayout rows = panel.findViewById(R.id.rows);
-        int width = (int) (290 * density);
-        final PopupWindow popup = new PopupWindow(panel, width, ViewGroup.LayoutParams.WRAP_CONTENT, true);
-        popup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        popup.setOutsideTouchable(true);
-        popup.setAnimationStyle(0);
-        popup.setElevation(0f);
-        addInputRow(rows, popup, R.drawable.ic_pin, getString(R.string.wallpaper_new), -1, this::fetchWallpaper);
-        if (!wallpapers.files().isEmpty()) {
-            addInputRow(rows, popup, R.drawable.ic_right, getString(R.string.wallpaper_next), -1, () -> stepWallpaper(1));
-            addInputRow(rows, popup, R.drawable.ic_left, getString(R.string.wallpaper_prev), -1, () -> stepWallpaper(-1));
+
+        addConfigHeader(rows, getString(R.string.theme_header));
+        addConfigRow(rows, dialog, 0, getString(R.string.theme_dock), theme == Theme.DOCK, true,
+                () -> applyTheme(Theme.DOCK));
+        addConfigRow(rows, dialog, 0, getString(R.string.theme_android), theme == Theme.ANDROID, true,
+                () -> applyTheme(Theme.ANDROID));
+        addConfigRow(rows, dialog, 0, getString(R.string.theme_apple), theme == Theme.APPLE, true,
+                () -> applyTheme(Theme.APPLE));
+
+        addConfigHeader(rows, getString(R.string.wallpaper_header));
+        addConfigRow(rows, dialog, R.drawable.ic_pin, getString(R.string.wallpaper_new), false, true, this::fetchWallpaper);
+        if (!wallpapers.files().isEmpty()) {   // stepping through stays open so you can browse
+            addConfigRow(rows, dialog, R.drawable.ic_right, getString(R.string.wallpaper_next), false, false,
+                    () -> stepWallpaper(1));
+            addConfigRow(rows, dialog, R.drawable.ic_left, getString(R.string.wallpaper_prev), false, false,
+                    () -> stepWallpaper(-1));
         }
         if (!"auto".equals(wallpaperChoice())) {
-            addInputRow(rows, popup, R.drawable.ic_unpin, getString(R.string.wallpaper_remove), -1, this::removeWallpaper);
-            addInputRow(rows, popup, R.drawable.ic_settings, getString(R.string.wallpaper_auto), -1,
+            addConfigRow(rows, dialog, R.drawable.ic_unpin, getString(R.string.wallpaper_remove), false, true,
+                    this::removeWallpaper);
+            addConfigRow(rows, dialog, R.drawable.ic_settings, getString(R.string.wallpaper_auto), false, true,
                     () -> setWallpaperChoice("auto"));
         }
-        popup.showAsDropDown(anchor, anchor.getWidth() - width, (int) (10 * density), Gravity.START);
-        rows.getChildAt(0).requestFocus();
+
+        // The Android side: the system settings and the inputs, so nothing is lost from the old top bar.
+        addConfigHeader(rows, getString(R.string.system_header));
+        addSystemRow(rows, dialog, R.drawable.ic_settings, R.string.system_settings, new Intent(Settings.ACTION_SETTINGS));
+        addSystemRow(rows, dialog, R.drawable.ic_wifi, R.string.system_network, new Intent(Settings.ACTION_WIFI_SETTINGS));
+        addSystemRow(rows, dialog, R.drawable.ic_av, R.string.system_display, new Intent(Settings.ACTION_DISPLAY_SETTINGS));
+        addSystemRow(rows, dialog, R.drawable.ic_av, R.string.system_sound, new Intent(Settings.ACTION_SOUND_SETTINGS));
+        if (hasInputs()) {   // boxes without HDMI/AV inputs or a tuner (like a streaming stick) don't get the row
+            addConfigRow(rows, dialog, R.drawable.ic_input, getString(R.string.inputs), false, true, this::showInputs);
+        }
+
+        dialog.setContentView(panel);
+        Window w = dialog.getWindow();
+        if (w != null) {
+            w.setLayout((int) (380 * density), ViewGroup.LayoutParams.MATCH_PARENT);
+            w.setGravity(Gravity.END);
+            w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            w.setDimAmount(0.45f);
+        }
+        dialog.show();
+        View selected = rows.getChildAt(1 + theme.ordinal());   // child 0 is the THEME header
+        if (selected != null) selected.requestFocus();
+    }
+
+    private boolean hasInputs() {
+        TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
+        if (tim != null) {
+            for (TvInputInfo info : tim.getTvInputList()) if (info.isPassthroughInput()) return true;
+        }
+        return !liveTvPkg.isEmpty() && getPackageManager().getLeanbackLaunchIntentForPackage(liveTvPkg) != null;
+    }
+
+    /** A row that opens a system settings screen; skipped when this box has no screen for it. */
+    private void addSystemRow(LinearLayout rows, Dialog dialog, int iconRes, int titleRes, Intent intent) {
+        if (getPackageManager().resolveActivity(intent, 0) == null) return;
+        addConfigRow(rows, dialog, iconRes, getString(titleRes), false, true, () -> open(intent));
+    }
+
+    private void addConfigHeader(LinearLayout rows, String text) {
+        TextView header = new TextView(this);
+        header.setText(text);
+        header.setTextColor(0x99FFFFFF);
+        header.setTextSize(11f);
+        header.setLetterSpacing(0.14f);
+        header.setTypeface(getResources().getFont(R.font.open_sans));
+        header.setPadding((int) (12 * density), (int) (rows.getChildCount() == 0 ? 6 * density : 20 * density),
+                0, (int) (6 * density));
+        rows.addView(header);
+    }
+
+    /** A row in the sidebar; a dot marks the selected one. iconRes 0 means no icon. */
+    private void addConfigRow(LinearLayout rows, Dialog dialog, int iconRes, String title, boolean selected,
+                              boolean closeAfter, Runnable action) {
+        View row = getLayoutInflater().inflate(R.layout.item_input, rows, false);
+        ImageView icon = row.findViewById(R.id.icon);
+        if (iconRes == 0) icon.setVisibility(View.GONE);
+        else icon.setImageResource(iconRes);
+        ((TextView) row.findViewById(R.id.title)).setText(title);
+        row.findViewById(R.id.status).setVisibility(View.GONE);
+        row.findViewById(R.id.dot).setVisibility(selected ? View.VISIBLE : View.GONE);
+        row.setOnClickListener(v -> {
+            if (closeAfter) dialog.dismiss();
+            action.run();
+        });
+        rows.addView(row);
     }
 
     /** After the dock changes, focus the app's new tile once the grid has re-laid out. */
@@ -614,8 +688,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             public void onGlobalLayout() {
                 grid.getViewTreeObserver().removeOnGlobalLayoutListener(this);
                 RecyclerView.ViewHolder h = grid.findViewHolderForAdapterPosition(pos);
-                View target = h != null ? h.itemView.findViewById(R.id.card) : grid.getChildAt(0);
-                if (target != null) target.requestFocus();
+                if (h != null) h.itemView.findViewById(R.id.card).requestFocus();   // never guess another tile
             }
         });
         grid.scrollToPosition(pos);
@@ -766,12 +839,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** Dropdown menu under the Inputs pill: HDMI ports (with connection state), AV and Live TV. */
     private void showInputs() {
-        View anchor = findViewById(R.id.btnInputs);
+        View anchor = findViewById(R.id.btnSettings);
         View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
         LinearLayout rows = panel.findViewById(R.id.rows);
 
-        // Compact: as wide as the Inputs pill (a touch wider so "HDMI 1" fits), hanging right below it.
-        int width = Math.max(anchor.getWidth(), (int) (150 * density));
+        // Compact, hanging right below the Settings button with its right edge lined up to it.
+        int width = (int) (170 * density);
         final PopupWindow popup = new PopupWindow(panel, width, ViewGroup.LayoutParams.WRAP_CONTENT, true);
         popup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));   // needed for Back to dismiss
         popup.setOutsideTouchable(true);
@@ -818,7 +891,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         panel.setPivotY(0f);
         panel.setScaleY(0.92f);
         panel.setTranslationY(-8 * density);
-        popup.showAsDropDown(anchor, 0, (int) (10 * density), Gravity.START);
+        popup.showAsDropDown(anchor, anchor.getWidth() - width, (int) (10 * density), Gravity.START);
         panel.animate().alpha(1f).scaleY(1f).translationY(0f).setDuration(220)
                 .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
         rows.getChildAt(0).requestFocus();

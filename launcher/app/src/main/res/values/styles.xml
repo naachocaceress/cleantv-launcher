@@ -33,4 +33,12 @@
         <item name="android:focusable">true</item>
         <item name="android:clickable">true</item>
     </style>
+
+    <!-- The config sidebar: a dialog pinned to the right edge, no frame of its own. -->
+    <style name="Sidebar" parent="android:Theme.Material.Dialog.NoActionBar">
+        <item name="android:windowMinWidthMajor">0dp</item>
+        <item name="android:windowMinWidthMinor">0dp</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
 </resources>

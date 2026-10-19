@@ -34,26 +34,32 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * App tiles. The first {@link #dockCount()} positions are the pinned dock, in the order the user set; the rest
- * is alphabetical. The pinned list is saved on the device and starts from res/values/config.xml (dock_apps).
+ * The app tiles. Pinned apps come first, in the order the user set; the rest is alphabetical. The pinned list is
+ * saved on the device and starts from res/values/config.xml (dock_apps).
+ *
+ * What a tile looks like depends on the {@link Theme}: in DOCK the first {@link #dockCount()} positions are the dock
+ * (small icons) and the rest are banner cards; in ANDROID every app is a banner card; in APPLE every app is a large
+ * icon. Only ANDROID and APPLE have no dock ({@link #dockCount()} is 0), so "pinned" just means "listed first".
  */
 public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     interface TileListener {
         void onTileFocused(int position, View card);
 
-        /** Called for D-pad Up/Down on a tile. Return true when handled. */
+        /** Called for D-pad Up/Down on a tile in the DOCK theme. Return true when handled. */
         boolean onTileVerticalKey(int position, int keyCode);
 
-        /** Hold OK or press Menu on a tile: move, pin, unpin, app info. */
+        /** Hold OK or press Menu on a tile: move (dock only), pin, unpin, app info. */
         void onTileMenu(int position, View card);
 
-        /** True while an app is being moved: the tiles then hand every key to {@link #onMoveKey}. */
+        /** True while a dock app is being moved: the tiles then hand every key to {@link #onMoveKey}. */
         boolean isMoving();
 
         /** A key pressed on a tile while moving. Return true when handled (it always should be). */
         boolean onMoveKey(int position, int keyCode);
     }
+
+    static final int TYPE_ICON = 0, TYPE_BANNER = 1;
 
     // Square dock art (res/drawable-nodpi/dock_*.png), drawn locally by tools/make_dock_icons.py and kept out of git
     // (the logos are trademarks). Looked up by name so the app builds without them; apps without art show their own icon.
@@ -81,34 +87,36 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         final String label;
         final ComponentName component;
         final String pkg;
-        /** Logo-only art, or null: then the app's own icon is shown. */
+        /** Square dock art, or null: then the app's own icon is shown. */
         final Drawable glyph;
         final Drawable icon;
+        /** The app's own TV banner (16:9), or null. */
+        final Drawable banner;
         int ambient;
 
-        Entry(String label, ComponentName component, Drawable glyph, Drawable icon) {
+        Entry(String label, ComponentName component, Drawable glyph, Drawable icon, Drawable banner) {
             this.label = label;
             this.component = component;
             this.pkg = component.getPackageName();
             this.glyph = glyph;
             this.icon = icon;
+            this.banner = banner;
         }
     }
 
-    static final float FOCUS_SCALE = 1.10f;
+    static final float FOCUS_SCALE = 1.10f;          // large icons (APPLE)
+    static final float BANNER_FOCUS_SCALE = 1.06f;   // banner cards
     static final float CORNER_RATIO = 0.225f;
 
     private final Context ctx;
     private final TileListener listener;
     private static final String PREFS = "tvhome";
     private static final String PREF_DOCK = "dock";
-    private static final String PREF_ORDER = "order";
     private final int maxDock;
+    private Theme theme = Theme.DOCK;
     private int dockCount;
     /** Pinned packages in dock order, including any that are not installed right now. */
     private final List<String> pinned = new ArrayList<>();
-    /** The grid's order as the user left it (apps not listed follow alphabetically). */
-    private final List<String> order = new ArrayList<>();
     /** Never shown as tiles (res/values/config.xml, hidden_apps). */
     private final Set<String> hidden;
     private final List<Entry> items = new ArrayList<>();
@@ -121,9 +129,16 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         pinned.addAll(saved != null
                 ? (saved.isEmpty() ? Collections.emptyList() : Arrays.asList(saved.split(",")))
                 : Arrays.asList(ctx.getResources().getStringArray(R.array.dock_apps)));
-        String savedOrder = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(PREF_ORDER, "");
-        if (!savedOrder.isEmpty()) order.addAll(Arrays.asList(savedOrder.split(",")));
         this.hidden = new HashSet<>(Arrays.asList(ctx.getResources().getStringArray(R.array.hidden_apps)));
+    }
+
+    Theme theme() {
+        return theme;
+    }
+
+    void setTheme(Theme theme) {
+        this.theme = theme;
+        reload();
     }
 
     void reload() {
@@ -142,12 +157,16 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             if (mainComponent != null && !mainComponent.getClassName().equals(ri.activityInfo.name)) continue;
             if (!seen.add(pkg)) continue;
             Drawable icon = ri.loadIcon(pm);
+            Drawable banner = ri.activityInfo.loadBanner(pm);
+            if (banner == null && ri.activityInfo.applicationInfo != null) {
+                banner = ri.activityInfo.applicationInfo.loadBanner(pm);
+            }
             String label = String.valueOf(ri.loadLabel(pm));
             String glyphName = GLYPHS.get(pkg);
             int glyph = glyphName == null ? 0
                     : ctx.getResources().getIdentifier(glyphName, "drawable", ctx.getPackageName());
             fresh.add(new Entry(label, new ComponentName(pkg, ri.activityInfo.name),
-                    glyph != 0 ? ctx.getDrawable(glyph) : null, icon));
+                    glyph != 0 ? ctx.getDrawable(glyph) : null, icon, banner));
         }
         Collections.sort(fresh, (a, b) -> {
             int fa = pinned.indexOf(a.pkg), fb = pinned.indexOf(b.pkg);
@@ -156,19 +175,13 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 if (fb < 0) return -1;
                 return Integer.compare(fa, fb);
             }
-            int oa = order.indexOf(a.pkg), ob = order.indexOf(b.pkg);
-            if (oa >= 0 || ob >= 0) {
-                if (oa < 0) return 1;
-                if (ob < 0) return -1;
-                return Integer.compare(oa, ob);
-            }
             return a.label.compareToIgnoreCase(b.label);
         });
         items.clear();
         items.addAll(fresh);
         int docked = 0;
         while (docked < items.size() && pinned.contains(items.get(docked).pkg)) docked++;
-        dockCount = Math.min(docked, maxDock);
+        dockCount = theme == Theme.DOCK ? Math.min(docked, maxDock) : 0;
         notifyDataSetChanged();
     }
 
@@ -191,21 +204,24 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         return -1;
     }
 
-    /** Adds the app to the end of the dock. False when the dock is full. */
+    boolean isPinned(String pkg) {
+        return pinned.contains(pkg);
+    }
+
+    /** Pins the app (last in the dock). False when the dock is full. */
     boolean pin(String pkg) {
         if (pinned.contains(pkg)) return true;
-        if (dockCount >= maxDock) return false;
+        int installedPins = 0;
+        for (Entry e : items) if (pinned.contains(e.pkg)) installedPins++;
+        if (installedPins >= maxDock) return false;
         pinned.removeIf(p -> positionOf(p) < 0);   // forget uninstalled pins so they don't hold slots
         pinned.add(pkg);
         saveAndReload();
         return true;
     }
 
-    /** Takes the app off the dock; it lands first in the grid. */
     void unpin(String pkg) {
         pinned.remove(pkg);
-        order.remove(pkg);
-        order.add(0, pkg);
         saveAndReload();
     }
 
@@ -224,57 +240,77 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         saveAndReload();
     }
 
-    /**
-     * Moves a grid app by delta places (-1/+1 sideways, -/+ columns for a row up/down); the others shift over. The
-     * whole visible grid order is saved, so it stays where the user put it.
-     */
-    void moveInGrid(String pkg, int delta) {
-        List<String> grid = new ArrayList<>();
-        for (int i = dockCount; i < items.size(); i++) grid.add(items.get(i).pkg);
-        int from = grid.indexOf(pkg);
-        if (from < 0) return;
-        int to = Math.max(0, Math.min(grid.size() - 1, from + delta));
-        if (to == from) return;
-        grid.add(to, grid.remove(from));
-        order.clear();
-        order.addAll(grid);
-        saveAndReload();
-    }
-
     private void saveAndReload() {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                .putString(PREF_DOCK, String.join(",", pinned))
-                .putString(PREF_ORDER, String.join(",", order)).apply();
+                .putString(PREF_DOCK, String.join(",", pinned)).apply();
         reload();
+    }
+
+    // ---- views -----------------------------------------------------------------------------------
+
+    @Override
+    public int getItemViewType(int position) {
+        if (theme == Theme.APPLE) return TYPE_ICON;
+        if (theme == Theme.ANDROID) return TYPE_BANNER;
+        return isDocked(position) ? TYPE_ICON : TYPE_BANNER;
     }
 
     @NonNull
     @Override
     public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_app, parent, false);
-        return new Holder(v, listener, this);
+        boolean banner = viewType == TYPE_BANNER;
+        View v = LayoutInflater.from(parent.getContext())
+                .inflate(banner ? R.layout.item_banner : R.layout.item_app, parent, false);
+        return new Holder(v, listener, this, banner);
     }
 
     @Override
     public void onBindViewHolder(@NonNull Holder h, int position) {
         Entry e = items.get(position);
-        h.name.setText(e.label);
-        boolean docked = isDocked(position);
-        h.name.setVisibility(docked ? View.INVISIBLE : View.VISIBLE);   // the dock uses the tooltip instead
-        h.name.setAlpha(0f);
+        float d = ctx.getResources().getDisplayMetrics().density;
         h.card.setScaleX(1f);
         h.card.setScaleY(1f);
         h.card.setTranslationY(0f);
-        // Icon only: the dock art (or the app's own icon) fills the rounded square, nothing behind it.
-        h.shadow.setVisibility(View.VISIBLE);
-        h.shadow.setScaleX(1f);
-        h.shadow.setScaleY(1f);
-        h.shadow.setTranslationY(0f);
-        h.label.setVisibility(View.GONE);
-        h.card.setBackground(null);
-        h.banner.setVisibility(View.GONE);
-        h.icon.setImageDrawable(e.glyph != null ? e.glyph : e.icon);
-        h.icon.setVisibility(View.VISIBLE);
+        ViewGroup.LayoutParams lp = h.card.getLayoutParams();
+        if (h.bannerType) {
+            // 16:9 like the apps' own TV banners, leaving air between the cards (cells are 160dp in DOCK, 233dp in
+            // ANDROID).
+            boolean big = theme == Theme.ANDROID;
+            lp.width = (int) ((big ? 208 : 142) * d);
+            lp.height = (int) ((big ? 117 : 80) * d);
+            h.card.setLayoutParams(lp);
+            boolean hasBanner = e.banner != null;
+            h.banner.setImageDrawable(e.banner);
+            h.banner.setVisibility(hasBanner ? View.VISIBLE : View.GONE);
+            h.icon.setImageDrawable(e.glyph != null ? e.glyph : e.icon);
+            h.icon.setVisibility(hasBanner ? View.GONE : View.VISIBLE);
+            h.label.setText(e.label);
+            h.label.setVisibility(hasBanner ? View.GONE : View.VISIBLE);
+        } else {
+            boolean apple = theme == Theme.APPLE;
+            int size = (int) ((apple ? 96 : 56) * d);
+            lp.width = size;
+            lp.height = size;
+            h.card.setLayoutParams(lp);
+            // Icon only: the dock art (or the app's own icon) fills the rounded square, nothing behind it.
+            h.card.setBackground(null);
+            h.banner.setVisibility(View.GONE);
+            h.label.setVisibility(View.GONE);
+            h.icon.setImageDrawable(e.glyph != null ? e.glyph : e.icon);
+            h.icon.setVisibility(View.VISIBLE);
+            h.shadow.setVisibility(apple ? View.GONE : View.VISIBLE);
+            h.shadow.setScaleX(1f);
+            h.shadow.setScaleY(1f);
+            h.shadow.setTranslationY(0f);
+            h.name.setText(e.label);
+            // APPLE shows the name under the focused icon; the dock uses a tooltip instead.
+            h.name.setVisibility(apple ? View.VISIBLE : View.INVISIBLE);
+            FrameLayout.LayoutParams nlp = (FrameLayout.LayoutParams) h.name.getLayoutParams();
+            nlp.width = (int) ((apple ? 140 : 100) * d);
+            nlp.topMargin = (int) ((apple ? 96 + 10 : 63) * d);
+            h.name.setLayoutParams(nlp);
+            h.name.setAlpha(0f);
+        }
         h.card.setOnClickListener(v -> launch(e));
         h.card.setOnLongClickListener(v -> {
             int pos = h.getBindingAdapterPosition();
@@ -304,7 +340,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         return position >= 0 && position < items.size() ? items.get(position).label : "";
     }
 
-    /** A vivid colour sampled from the app's banner (or icon), cached per entry. */
+    /** A vivid colour sampled from the app's art (or icon), cached per entry. */
     int ambientColorAt(int position) {
         if (position < 0 || position >= items.size()) return 0xFF444444;
         Entry e = items.get(position);
@@ -342,7 +378,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             }
         }
         bmp.recycle();
-        if (bestScore < 0.25f) {   // nearly monochrome banner (e.g. white): use its average, lifted
+        if (bestScore < 0.25f) {   // nearly monochrome art (e.g. white): use its average, lifted
             int avg = Color.rgb((int) (r / (n * n)), (int) (g / (n * n)), (int) (b / (n * n)));
             Color.colorToHSV(avg, hsv);
             hsv[2] = Math.max(hsv[2], 0.55f);
@@ -355,6 +391,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     }
 
     static final class Holder extends RecyclerView.ViewHolder {
+        final boolean bannerType;
         final View card;
         final View shadow;
         final ImageView banner;
@@ -362,8 +399,9 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         final TextView label;
         final TextView name;
 
-        Holder(View v, TileListener listener, AppAdapter owner) {
+        Holder(View v, TileListener listener, AppAdapter owner, boolean bannerType) {
             super(v);
+            this.bannerType = bannerType;
             card = v.findViewById(R.id.card);
             shadow = v.findViewById(R.id.shadow);
             banner = v.findViewById(R.id.banner);
@@ -375,8 +413,9 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             card.setOutlineProvider(new ViewOutlineProvider() {
                 @Override
                 public void getOutline(View view, Outline outline) {
-                    // Squircle-ish corners: 22.5% of the short side, matching the dock icon artwork.
-                    float radius = Math.min(view.getWidth(), view.getHeight()) * CORNER_RATIO;
+                    // Banner cards: a fixed 12dp corner. Icons: squircle-ish, 22.5% of the short side.
+                    float radius = bannerType ? 12 * density
+                            : Math.min(view.getWidth(), view.getHeight()) * CORNER_RATIO;
                     outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
                 }
             });
@@ -392,15 +431,18 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                     return true;
                 }
                 if (keyCode != KeyEvent.KEYCODE_DPAD_UP && keyCode != KeyEvent.KEYCODE_DPAD_DOWN) return false;
+                // Only the DOCK theme mixes a dock row with the grid and needs its own up/down logic; the other
+                // themes are a plain grid and use Android's focus search.
+                if (owner.theme != Theme.DOCK) return false;
                 return listener.onTileVerticalKey(pos, keyCode);
             });
 
             card.setOnFocusChangeListener((view, focused) -> {
-                // Dock icons are magnified as a group by MainActivity; grid tiles scale themselves.
+                // Dock icons are magnified as a group by MainActivity; every other tile scales itself, at once.
                 boolean inDock = owner.isDocked(getBindingAdapterPosition());
-                float s = focused ? FOCUS_SCALE : 1.0f;
                 if (!inDock) {
-                    view.setScaleX(s);   // no transitions anywhere: focus changes show at once
+                    float s = focused ? (bannerType ? BANNER_FOCUS_SCALE : FOCUS_SCALE) : 1.0f;
+                    view.setScaleX(s);
                     view.setScaleY(s);
                 }
                 name.setAlpha(focused ? 1f : 0f);

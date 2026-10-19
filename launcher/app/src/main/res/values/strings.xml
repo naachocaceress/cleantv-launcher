@@ -22,9 +22,7 @@
     <string name="unpin_from_dock">Unpin from Dock</string>
     <string name="app_info">App Info</string>
     <string name="move">Move</string>
-    <string name="move_hint">Use the arrow keys to move it (Down/Up also moves it between the dock and the grid). Press OK when done.</string>
     <string name="dock_full">Dock is full. Unpin an app first.</string>
-    <string name="wallpaper">Wallpaper</string>
     <string name="wallpaper_new">New wallpaper from the web</string>
     <string name="wallpaper_next">Next wallpaper</string>
     <string name="wallpaper_prev">Previous wallpaper</string>
@@ -34,4 +32,16 @@
     <string name="wallpaper_searching">Finding a wallpaper…</string>
     <string name="wallpaper_failed">Couldn\'t download a wallpaper. Check the internet connection.</string>
     <string name="wallpaper_have_all">You already downloaded every wallpaper in the catalog.</string>
-</resources>
+    <string name="move_hint">Use the left and right arrows to move it along the dock. Press OK when done.</string>
+    <string name="pin_to_front">Pin to the start</string>
+    <string name="unpin_from_front">Unpin</string>
+    <string name="config_title">Customize</string>
+    <string name="theme_header">THEME</string>
+    <string name="theme_dock">Dock</string>
+    <string name="theme_android">Android</string>
+    <string name="theme_apple">Apple</string>
+    <string name="wallpaper_header">WALLPAPER</string>    <string name="system_header">ANDROID</string>
+    <string name="system_settings">Android settings</string>
+    <string name="system_network">Network</string>
+    <string name="system_display">Display</string>
+    <string name="system_sound">Sound</string></resources>

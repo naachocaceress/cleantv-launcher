@@ -2,8 +2,8 @@
 
 Paste this into Claude Code (or another coding assistant with shell access) on a computer that is
 on the same Wi-Fi as the TV. Works on Android TV / Google TV sets (Xiaomi, TCL, Hisense, Sony,
-OnePlus, Realme, Nvidia Shield and most others) and on Fire TV, with the differences in the README's
-Fire TV section. It will not work on Samsung Tizen or LG webOS. If you cloned this repo, mention
+OnePlus, Realme, Nvidia Shield and most others). It will not work on Samsung Tizen, LG webOS or Fire TV (CleanTV
+dropped the Fire OS home redirect). If you cloned this repo, mention
 that: the assistant can reuse `tools/` and `launcher/`
 instead of writing them from scratch, and only needs to edit `launcher/.../values/config.xml`.
 

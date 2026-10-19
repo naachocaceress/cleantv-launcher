@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Build the launcher APK, install it on the TV, and make it the home screen.
+# Build the CleanTV launcher APK, install it on the TV and make it the default home.
 #
-# Android TV / Google TV: sets the launcher as the default home and disables the stock launcher
-# (STOCK_LAUNCHER, default com.google.android.tvlauncher).
-# Fire TV: never touches Amazon's launcher, which also hosts Settings. Instead it turns on the
-# launcher's HomeRedirectService and its photo screensaver. See "Fire TV" in the README.
+# Android TV / Google TV only. The stock launcher is left alone unless you ask for it to be disabled:
+#   DISABLE_STOCK=1 TV_HOST=192.168.1.50 ./build-and-install.sh      (STOCK_LAUNCHER defaults to
+#   com.google.android.tvlauncher; set it for other boxes). Install first, disable second: with no launcher the
+#   Home button lands on a factory test app. `tools/restore.sh` or `pm enable <package>` undoes it.
 set -euo pipefail
 cd "$(dirname "$0")"
 : "${TV_HOST:?set TV_HOST to the TV IP address, e.g. TV_HOST=192.168.1.50 $0}"
@@ -19,23 +19,17 @@ APK=app/build/outputs/apk/debug/app-debug.apk
 "$PY" -I ../tools/b64push.py "$APK" /data/local/tmp/tvhome.apk
 MAKER=$("$PY" -I ../tools/tv.py 'getprop ro.product.manufacturer' | tr -d '\r\n')
 if [ "$MAKER" = "Amazon" ]; then
-  printf '%s\n' \
-    "pm install -r /data/local/tmp/tvhome.apk" \
-    "rm -f /data/local/tmp/tvhome.apk" \
-    "pm grant com.gathin.tvhome android.permission.WRITE_SECURE_SETTINGS" \
-    "settings put secure enabled_accessibility_services com.gathin.tvhome/com.gathin.tvhome.HomeRedirectService" \
-    "settings put secure accessibility_enabled 1" \
-    "settings put secure screensaver_components com.gathin.tvhome/com.gathin.tvhome.PhotoDream" \
-    "am start -n com.gathin.tvhome/.MainActivity" \
-    | "$PY" -I ../tools/tv.py --batch
-  echo "Installed on Fire TV. Home opens the launcher. To go back to Amazon's home screen, press Menu on"
-  echo "the launcher's Settings button and choose Use Amazon Home Screen."
+  echo "This is a Fire TV. CleanTV no longer supports Fire OS (it guards its home screen); nothing was installed." >&2
+  exit 1
+fi
+printf '%s\n' \
+  "pm install -r /data/local/tmp/tvhome.apk" \
+  "rm -f /data/local/tmp/tvhome.apk" \
+  "cmd package set-home-activity --user 0 com.gathin.tvhome" \
+  | "$PY" -I ../tools/tv.py --batch
+if [ "${DISABLE_STOCK:-0}" = "1" ]; then
+  "$PY" -I ../tools/tv.py "pm disable-user --user 0 $STOCK_LAUNCHER"
+  echo "Installed, and $STOCK_LAUNCHER is disabled. Press Home on the remote."
 else
-  printf '%s\n' \
-    "pm install -r /data/local/tmp/tvhome.apk" \
-    "rm -f /data/local/tmp/tvhome.apk" \
-    "cmd package set-home-activity --user 0 com.gathin.tvhome" \
-    "pm disable-user --user 0 $STOCK_LAUNCHER" \
-    | "$PY" -I ../tools/tv.py --batch
-  echo "Installed. Press Home on the remote to see it."
+  echo "Installed. Press Home and choose CleanTV (the stock launcher was not touched)."
 fi

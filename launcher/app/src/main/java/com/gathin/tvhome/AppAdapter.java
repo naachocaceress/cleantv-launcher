@@ -120,9 +120,12 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     private final TileListener listener;
     private static final String PREFS = "tvhome";
     private static final String PREF_DOCK = "dock";
+    private static final String PREF_ORDER = "order";
     private final int maxDock;
     private Theme theme = Theme.DOCK;
     private int dockCount;
+    /** The order of the apps that are not pinned, as the user left it (the rest follow alphabetically). Per theme. */
+    private final List<String> order = new ArrayList<>();
     /** How many apps at the start of the list are pinned (and installed), whatever the theme. */
     private int pinnedCount;
     /** Pinned packages in dock order, including any that are not installed right now. */
@@ -158,7 +161,14 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
      * Loads the current theme's pinned list. A theme that was never used starts from config.xml (dock_apps), cut to what
      * that theme can hold; after that it is edited on the TV.
      */
+    private String orderKey() {
+        return PREF_ORDER + "_" + theme.key();
+    }
+
     private void loadPinned() {
+        order.clear();
+        String savedOrder = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(orderKey(), "");
+        if (!savedOrder.isEmpty()) order.addAll(Arrays.asList(savedOrder.split(",")));
         pinned.clear();
         String saved = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(pinnedKey(), null);
         if (saved != null) {
@@ -202,6 +212,12 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 if (fa < 0) return 1;
                 if (fb < 0) return -1;
                 return Integer.compare(fa, fb);
+            }
+            int oa = order.indexOf(a.pkg), ob = order.indexOf(b.pkg);
+            if (oa >= 0 || ob >= 0) {
+                if (oa < 0) return 1;
+                if (ob < 0) return -1;
+                return Integer.compare(oa, ob);
             }
             return a.label.compareToIgnoreCase(b.label);
         });
@@ -264,8 +280,28 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         return true;
     }
 
+    /** Takes the app off the pinned ones; it lands first among the rest. */
     void unpin(String pkg) {
         pinned.remove(pkg);
+        order.remove(pkg);
+        order.add(0, pkg);
+        saveAndReload();
+    }
+
+    /**
+     * Moves an app that is not pinned by delta places among the others (1 sideways, or a row's worth up or down); the
+     * rest shift over. The whole order is saved, so it stays where the user put it.
+     */
+    void moveInRest(String pkg, int delta) {
+        List<String> rest = new ArrayList<>();
+        for (int i = pinnedCount; i < items.size(); i++) rest.add(items.get(i).pkg);
+        int from = rest.indexOf(pkg);
+        if (from < 0) return;
+        int to = Math.max(0, Math.min(rest.size() - 1, from + delta));
+        if (to == from) return;
+        rest.add(to, rest.remove(from));
+        order.clear();
+        order.addAll(rest);
         saveAndReload();
     }
 
@@ -286,7 +322,8 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     private void saveAndReload() {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                .putString(pinnedKey(), String.join(",", pinned)).apply();
+                .putString(pinnedKey(), String.join(",", pinned))
+                .putString(orderKey(), String.join(",", order)).apply();
         reload();
     }
 

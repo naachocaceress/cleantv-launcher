@@ -328,7 +328,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             top = 0;   // the grid itself is only as tall as the row and sits at the bottom (see below)
         } else {
             // tvOS: the first row (inside the shelf) sits low, the second one peeks in below it.
-            top = Math.max((int) (12 * density), grid.getHeight() - (int) (2 * 175 * density) - bottom);   // the plate row and the next one, both whole
+            top = Math.max((int) (12 * density), grid.getHeight() - (int) ((175 + 44) * density));   // the whole plate, the next row just peeking in
         }
         if (grid.getPaddingTop() != top || grid.getPaddingLeft() != side || grid.getPaddingBottom() != bottom) {
             grid.setPadding(side, top, side, bottom);
@@ -532,7 +532,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         popup.setElevation(0f);
 
         // Only pinned apps can be reordered (that is what pinning is for); the other apps stay alphabetical.
-        if (adapter.isPinnedAt(position)) addInputRow(rows, popup, R.drawable.ic_move, getString(R.string.move), -1, () -> startMove(pkg));
+        if (adapter.isPinnedAt(position) || theme == Theme.TILES) addInputRow(rows, popup, R.drawable.ic_move, getString(R.string.move), -1, () -> startMove(pkg));
         if (adapter.isPinned(pkg)) {
             addInputRow(rows, popup, R.drawable.ic_unpin,
                     getString(pinsToFront ? R.string.unpin_from_front : R.string.unpin_from_dock), -1, () -> {
@@ -574,8 +574,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     // ---- moving apps -----------------------------------------------------------------------------
-    // Move is for pinned apps (the dock, the plate or the start of the row): from the app's menu (hold OK), Left/Right slide
-    // it along them; OK or Back finishes.
+    // Move: from an app's menu (hold OK). Pinned apps slide along the dock / plate / start of the row with Left and Right;
+    // in the TILES theme the apps outside the plate also move with all four arrows. OK or Back finishes.
 
     private String movingPkg;
 
@@ -607,11 +607,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 return true;
             case KeyEvent.KEYCODE_DPAD_LEFT:
             case KeyEvent.KEYCODE_DPAD_RIGHT:
-                if (adapter.isPinnedAt(position)) {
-                    adapter.move(pkg, keyCode == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1);
-                    focusAfterLayout(pkg);
+            case KeyEvent.KEYCODE_DPAD_UP:
+            case KeyEvent.KEYCODE_DPAD_DOWN: {
+                boolean sideways = keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT;
+                int sign = keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_UP ? -1 : 1;
+                if (adapter.isPinnedAt(position)) {   // pinned apps slide along the dock / plate / start of the row
+                    if (!sideways) return true;
+                    adapter.move(pkg, sign);
+                } else if (theme == Theme.TILES) {   // the apps outside the plate can go anywhere among themselves
+                    adapter.moveInRest(pkg, sideways ? sign : sign * TILES_COLUMNS);
+                } else {
+                    return true;
                 }
+                focusAfterLayout(pkg);
                 return true;
+            }
             default:
                 return true;   // swallow everything else while moving
         }

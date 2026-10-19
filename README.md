@@ -44,7 +44,8 @@ El encabezado (saludo, hora, fecha, conexión y Ajustes) es el mismo en todos lo
 - **Fijar una app:** mantené OK (o apretá Menú) sobre la app y elegí *Fijar en el dock* (en Círculos y Mosaicos pasa
   al principio de la lista).
 - **Reordenar el dock:** mantené OK sobre una app del dock, elegí *Mover*, usá ← y →, y OK al terminar. Solo se mueven
-  las apps del dock; el resto va en orden alfabético, y por eso fijar tiene sentido.
+  las apps fijadas (en Mosaicos también las demás, con las cuatro flechas); en los otros temas el resto va en orden
+  alfabético, y por eso fijar tiene sentido. Cada tema guarda sus propias apps fijadas.
 - Algunas cajas capturan la tecla Menú para su propio diálogo; en ese caso mantené OK.
 - La grilla no tiene animaciones; el dock conserva el crecimiento, el nombre y el brillo.
 

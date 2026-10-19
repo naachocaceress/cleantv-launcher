@@ -20,7 +20,7 @@
     <string name="unpin_from_front">Unpin</string>
     <string name="app_info">App info</string>
     <string name="move">Move</string>
-    <string name="move_hint">Use the left and right arrows to move it among the pinned apps. Press OK when done.</string>
+    <string name="move_hint">Use the arrow keys to move it. Press OK when done.</string>
     <string name="dock_full">The dock is full. Unpin an app first.</string>
     <string name="cant_open">Can\'t open %1$s</string>
     <string name="not_available">Not available on this TV</string>

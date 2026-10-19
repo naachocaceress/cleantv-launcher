@@ -48,10 +48,10 @@ final class ShelfDecoration extends RecyclerView.ItemDecoration {
             }
         }
         if (top > bottom) return;   // that row is not on screen
-        rect.set(2 * density, top + 6 * density, parent.getWidth() - 2 * density, bottom - 4 * density);
+        rect.set(2 * density, top, parent.getWidth() - 2 * density, bottom);
         // Lighter at the top, like light falling on glass.
         fill.setShader(new LinearGradient(0, rect.top, 0, rect.bottom, 0x52FFFFFF, 0x26FFFFFF, Shader.TileMode.CLAMP));
-        float r = 30 * density;
+        float r = 26 * density;
         c.drawRoundRect(rect, r, r, fill);
         c.drawRoundRect(rect, r, r, edge);
     }

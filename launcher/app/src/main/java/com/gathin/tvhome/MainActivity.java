@@ -319,7 +319,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             top = 0;   // the grid itself is only as tall as the row and sits at the bottom (see below)
         } else {
             // tvOS: the first row (inside the shelf) sits low, the second one peeks in below it.
-            top = Math.max((int) (12 * density), grid.getHeight() - (int) (179 * 1.3f * density));
+            top = Math.max((int) (12 * density), grid.getHeight() - (int) ((175 + 44) * density));
         }
         if (grid.getPaddingTop() != top || grid.getPaddingLeft() != side || grid.getPaddingBottom() != bottom) {
             grid.setPadding(side, top, side, bottom);

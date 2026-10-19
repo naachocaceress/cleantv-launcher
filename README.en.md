@@ -22,7 +22,7 @@ The layouts are **inspired by** well-known TV home screens; they are not copies 
   rest as cards. *Inspired by the macOS dock.*
 - **Circles**: one row of round icons hanging from the bottom, scrolling sideways, with the focused app's name as a big
   title. *Inspired by the Google TV home screen.*
-- **Tiles**: wide tiles on a translucent plate, the focused one grows and shows its name, the next row peeks in below.
+- **Tiles**: wide tiles on a translucent plate, the focused one grows without leaving the plate, the next row peeks in below.
   *Inspired by the tvOS home screen.*
 
 The header (greeting, clock, date, connection icon and Settings) is the same in every theme. The connection icon shows

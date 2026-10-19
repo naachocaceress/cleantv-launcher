@@ -25,7 +25,7 @@ Los diseños están **inspirados** en pantallas de inicio conocidas, pero no son
 |---|---|---|
 | **Dock** | Un dock de hasta 8 íconos que crecen al enfocarlos, con el nombre arriba y un brillo del color de la app. Con ↓ aparecen las demás apps como tarjetas. | El dock de macOS |
 | **Círculos** | Una fila de íconos redondos abajo que se desplaza hacia el costado, con el nombre de la app enfocada en grande y la fecha. | La pantalla de inicio de Google TV |
-| **Mosaicos** | Mosaicos anchos sobre una bandeja translúcida; el enfocado crece y muestra su nombre, y la fila siguiente asoma abajo. | La pantalla de inicio de tvOS |
+| **Mosaicos** | Mosaicos anchos sobre una bandeja translúcida; el enfocado crece sin salirse de la bandeja, y la fila siguiente asoma abajo. | La pantalla de inicio de tvOS |
 
 El encabezado (saludo, hora, fecha, conexión y Ajustes) es el mismo en todos los temas; solo cambia cómo se muestran las apps.
 

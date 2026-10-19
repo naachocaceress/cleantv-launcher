@@ -109,7 +109,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     static final float FOCUS_SCALE = 1.10f;          // large icons
     static final float BANNER_FOCUS_SCALE = 1.06f;   // banner cards
-    static final float WIDE_FOCUS_SCALE = 1.12f;     // tvOS tiles
+    static final float WIDE_FOCUS_SCALE = 1.18f;     // tvOS tiles
     static final float CORNER_RATIO = 0.225f;
 
     private final Context ctx;
@@ -320,8 +320,8 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 break;
             }
             case TYPE_WIDE: {   // TILES: a wide tile; the colour comes from the art's own edges
-                lp.width = (int) (205 * d);
-                lp.height = (int) (135 * d);
+                lp.width = (int) (196 * d);
+                lp.height = (int) (131 * d);
                 h.card.setLayoutParams(lp);
                 int[] edges = edgeColors(e);
                 GradientDrawable tile = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, edges);
@@ -334,12 +334,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 h.icon.setVisibility(hasBanner ? View.GONE : View.VISIBLE);
                 if (e.glyph == null) h.icon.setPadding((int) (38 * d), (int) (28 * d), (int) (38 * d), (int) (28 * d));
                 h.label.setVisibility(View.GONE);
-                h.shadow.setVisibility(View.GONE);
-                h.name.setVisibility(View.VISIBLE);
-                FrameLayout.LayoutParams nlp = (FrameLayout.LayoutParams) h.name.getLayoutParams();
-                nlp.width = lp.width;
-                nlp.topMargin = (int) (135 * d + 8 * d);
-                h.name.setLayoutParams(nlp);
+                h.shadow.setVisibility(View.GONE);   // no name under the tile: the plate is all there is
                 break;
             }
             default: {   // TYPE_ICON, the small dock icons of the DOCK theme

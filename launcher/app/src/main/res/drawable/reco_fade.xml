@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Darkens the bottom of a recommendation card so its title reads over any poster. -->
+<!-- Darkens the bottom of a recommendation card so its text reads over any poster, even a white app banner. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <gradient
         android:angle="90"
-        android:startColor="#CC000000"
+        android:startColor="#F2000000"
+        android:centerColor="#B3000000"
         android:endColor="#00000000" />
 </shape>

@@ -1,5 +1,6 @@
 package com.gathin.tvhome;
 
+import android.graphics.Bitmap;
 import android.graphics.Outline;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -51,9 +52,21 @@ final class RecoAdapter extends RecyclerView.Adapter<RecoAdapter.Holder> {
     public void onBindViewHolder(@NonNull Holder h, int position) {
         RecoStore.Item item = items.get(position);
         h.title.setText(item.title);
+        // The app above the title, unless the title already is the app (an entry that is just "you used this app").
+        boolean showApp = item.appLabel != null && !item.appLabel.equals(item.title);
+        h.app.setVisibility(showApp ? View.VISIBLE : View.GONE);
+        h.app.setText(item.appLabel);
         h.url = item.imageUrl;
-        h.image.setImageBitmap(store.cachedImage(item.imageUrl));
-        if (item.imageUrl != null && store.cachedImage(item.imageUrl) == null) {
+        Bitmap cached = store.cachedImage(item.imageUrl);
+        if (cached != null) {
+            h.image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            h.image.setImageBitmap(cached);
+        } else {
+            // Until the poster arrives (or when there is none) the card shows the app's own banner.
+            h.image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            h.image.setImageDrawable(store.appArt(item.pkg));
+        }
+        if (item.imageUrl != null && cached == null) {
             final String url = item.imageUrl;
             store.loadImage(url, bitmap -> {
                 if (url.equals(h.url)) h.image.setImageBitmap(bitmap);
@@ -76,6 +89,7 @@ final class RecoAdapter extends RecyclerView.Adapter<RecoAdapter.Holder> {
         final View card;
         final ImageView image;
         final TextView title;
+        final TextView app;
         final View progress;
         String url;
 
@@ -84,6 +98,7 @@ final class RecoAdapter extends RecyclerView.Adapter<RecoAdapter.Holder> {
             card = v.findViewById(R.id.recoCard);
             image = v.findViewById(R.id.recoImage);
             title = v.findViewById(R.id.recoTitle);
+            app = v.findViewById(R.id.recoApp);
             progress = v.findViewById(R.id.recoProgress);
 
             final float density = v.getResources().getDisplayMetrics().density;

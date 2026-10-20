@@ -722,7 +722,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
             TextView recoStatus = recoRowView.findViewById(R.id.status);
             recoStatus.setVisibility(View.VISIBLE);
             recoStatus.setText(!recoEnabled() ? R.string.reco_off
-                    : recoStore.hasPermission() ? R.string.reco_on : R.string.reco_needs_permission);
+                    : recoStore.hasPermission() || HistoryStore.listenerEnabled(this) ? R.string.reco_on
+                    : R.string.reco_needs_permission);
             addConfigRow(rows, dialog, R.drawable.ic_settings, getString(R.string.menu_android), false, true,
                     () -> open(new Intent(Settings.ACTION_SETTINGS)));
             if (hasInputs()) {   // boxes without HDMI/AV inputs or a tuner don't get this one
@@ -828,7 +829,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
 
     private void setRecoEnabled(boolean on) {
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(PREF_RECO, on).apply();
-        if (on && !recoStore.hasPermission()) requestPermissions(new String[]{RecoStore.PERMISSION}, REQUEST_RECO);
+        if (on && !recoStore.hasPermission() && !HistoryStore.listenerEnabled(this)) requestPermissions(new String[]{RecoStore.PERMISSION}, REQUEST_RECO);
         refreshReco();
     }
 

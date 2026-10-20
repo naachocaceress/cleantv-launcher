@@ -2,9 +2,11 @@ package com.gathin.tvhome;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.drawable.Drawable;
 import android.media.tv.TvContract;
 import android.net.Uri;
 import android.os.Handler;
@@ -12,10 +14,13 @@ import android.os.Looper;
 import android.util.LruCache;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -25,12 +30,12 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
- * The recommendations row: what the installed apps publish in Android TV's "Watch Next" list (continue watching, up
- * next, new episodes). It is read from the system's TV provider on the device, so there is no polling and no account:
- * the only network use is fetching the poster of an entry when it is shown, the same way a wallpaper is fetched.
+ * The Continue watching row. Two sources feed it: what the installed apps publish in Android TV's "Watch Next" list
+ * (read from the system's TV provider, needs {@link #PERMISSION}) and the history {@link MediaHistoryService} keeps of
+ * what played on this box, which covers the apps that publish nothing. There is no polling and no account: the only
+ * network use is fetching the poster of an entry when it is shown, the same way a wallpaper is fetched.
  *
- * Reading other apps' entries needs {@link #PERMISSION}. Without it (or on a box with no TV provider) the list is
- * simply empty and the row stays hidden.
+ * With neither source available the list is simply empty and the row stays hidden.
  */
 final class RecoStore {
 
@@ -43,17 +48,24 @@ final class RecoStore {
 
     static final class Item {
         final String title;
-        /** A content:// or https:// image, 16:9 when the app provides one. */
+        /** The app it belongs to, shown above the title. */
+        final String pkg;
+        final String appLabel;
+        /** A content://, file:// or https:// image, 16:9 when the app provides one; null shows the app's banner. */
         final String imageUrl;
         final Intent intent;
         /** How far into it you are, 0 when unknown or not started. */
         final float progress;
+        final long time;
 
-        Item(String title, String imageUrl, Intent intent, float progress) {
+        Item(String title, String pkg, String appLabel, String imageUrl, Intent intent, float progress, long time) {
             this.title = title;
+            this.pkg = pkg;
+            this.appLabel = appLabel;
             this.imageUrl = imageUrl;
             this.intent = intent;
             this.progress = progress;
+            this.time = time;
         }
     }
 
@@ -110,7 +122,59 @@ final class RecoStore {
         });
     }
 
+    /**
+     * Two sources, newest first: what apps publish to "Watch Next" (they know how to resume it) and what
+     * {@link MediaHistoryService} saw playing (title and picture, opens the app). An app with a titled entry does not
+     * also get a bare "you used this app" one.
+     */
     private List<Item> query() {
+        List<Item> all = new ArrayList<>(watchNext());
+        Set<String> withWatchNext = new HashSet<>();
+        for (Item i : all) withWatchNext.add(i.pkg);
+        List<HistoryStore.Entry> history = HistoryStore.load(ctx);
+        Set<String> withTitle = new HashSet<>(withWatchNext);
+        for (HistoryStore.Entry e : history) if (!e.title.isEmpty()) withTitle.add(e.pkg);
+        for (HistoryStore.Entry e : history) {
+            if (e.title.isEmpty() && withTitle.contains(e.pkg)) continue;
+            Item item = fromHistory(e);
+            if (item != null) all.add(item);
+        }
+        Collections.sort(all, (a, b) -> Long.compare(b.time, a.time));
+        Set<String> seen = new HashSet<>();
+        List<Item> out = new ArrayList<>();
+        for (Item i : all) {
+            if (seen.add(i.pkg + "|" + i.title) && out.size() < MAX_ITEMS) out.add(i);
+        }
+        return out;
+    }
+
+    private Item fromHistory(HistoryStore.Entry e) {
+        PackageManager pm = ctx.getPackageManager();
+        String label;
+        try {
+            label = String.valueOf(pm.getApplicationLabel(pm.getApplicationInfo(e.pkg, 0)));
+        } catch (PackageManager.NameNotFoundException gone) {
+            return null;   // the app was uninstalled
+        }
+        Intent intent = null;
+        if (e.mediaUri != null && !e.mediaUri.isEmpty()) {
+            Uri uri = Uri.parse(e.mediaUri);
+            String scheme = uri.getScheme();
+            // A web or app link the app itself published: open it in that app. Local files and the like are not.
+            if ("https".equals(scheme) || "http".equals(scheme) || (scheme != null && !"content".equals(scheme)
+                    && !"file".equals(scheme) && !"android.resource".equals(scheme))) {
+                Intent view = new Intent(Intent.ACTION_VIEW, uri).setPackage(e.pkg);
+                if (pm.resolveActivity(view, 0) != null) intent = view;
+            }
+        }
+        if (intent == null) intent = pm.getLeanbackLaunchIntentForPackage(e.pkg);
+        if (intent == null) intent = pm.getLaunchIntentForPackage(e.pkg);
+        if (intent == null) return null;
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return new Item(e.title.isEmpty() ? label : e.title, e.pkg, label, e.image, intent, e.progress, e.time);
+    }
+
+    private List<Item> watchNext() {
         List<Item> out = new ArrayList<>();
         if (!hasPermission()) return out;
         String[] columns = {
@@ -120,31 +184,47 @@ final class RecoStore {
                 TvContract.WatchNextPrograms.COLUMN_INTENT_URI,
                 TvContract.WatchNextPrograms.COLUMN_DURATION_MILLIS,
                 TvContract.WatchNextPrograms.COLUMN_LAST_PLAYBACK_POSITION_MILLIS,
+                TvContract.WatchNextPrograms.COLUMN_PACKAGE_NAME,
+                TvContract.WatchNextPrograms.COLUMN_LAST_ENGAGEMENT_TIME_UTC_MILLIS,
         };
-        Set<String> seen = new HashSet<>();
+        PackageManager pm = ctx.getPackageManager();
         try (Cursor c = ctx.getContentResolver().query(TvContract.WatchNextPrograms.CONTENT_URI, columns, null, null,
                 TvContract.WatchNextPrograms.COLUMN_LAST_ENGAGEMENT_TIME_UTC_MILLIS + " DESC")) {
             while (c != null && c.moveToNext() && out.size() < MAX_ITEMS) {
                 String title = c.getString(0);
                 String image = firstNonEmpty(c.getString(1), c.getString(2));
                 String intentUri = c.getString(3);
-                if (title == null || title.isEmpty() || intentUri == null || !seen.add(title + "|" + intentUri)) continue;
+                String pkg = c.getString(6);
+                if (title == null || title.isEmpty() || intentUri == null || pkg == null) continue;
                 Intent intent;
+                String label;
                 try {
                     intent = Intent.parseUri(intentUri, Intent.URI_INTENT_SCHEME);
+                    label = String.valueOf(pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)));
                 } catch (Exception e) {
                     continue;
                 }
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 long duration = c.getLong(4), position = c.getLong(5);
                 float progress = duration > 0 && position > 0 ? Math.min(1f, (float) position / duration) : 0f;
-                out.add(new Item(title, image, intent, progress));
+                out.add(new Item(title, pkg, label, image, intent, progress, c.getLong(7)));
             }
         } catch (Exception e) {
-            // No TV provider on this box, or the permission was revoked: nothing to show.
+            // No TV provider on this box, or the permission was revoked: nothing from Watch Next.
             out.clear();
         }
         return out;
+    }
+
+    /** The app's own banner (or icon) for entries that come without a picture. */
+    Drawable appArt(String pkg) {
+        PackageManager pm = ctx.getPackageManager();
+        try {
+            Drawable d = pm.getApplicationBanner(pkg);
+            return d != null ? d : pm.getApplicationIcon(pkg);
+        } catch (PackageManager.NameNotFoundException e) {
+            return null;
+        }
     }
 
     private static String firstNonEmpty(String a, String b) {
@@ -158,6 +238,13 @@ final class RecoStore {
             if ("content".equals(uri.getScheme()) || "android.resource".equals(uri.getScheme())) {
                 try (InputStream in = ctx.getContentResolver().openInputStream(uri)) {
                     if (in == null) return null;
+                    data = readAll(in);
+                }
+            } else if ("file".equals(uri.getScheme())) {
+                // Only the pictures HistoryStore saved in the launcher's own storage.
+                File file = new File(uri.getPath()).getCanonicalFile();
+                if (!file.getPath().startsWith(ctx.getFilesDir().getCanonicalPath() + File.separator)) return null;
+                try (InputStream in = new FileInputStream(file)) {
                     data = readAll(in);
                 }
             } else if ("https".equals(uri.getScheme())) {

@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.res.Resources;
+import android.util.DisplayMetrics;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -211,10 +213,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 continue;
             }
             Drawable icon = ri.loadIcon(pm);
-            Drawable banner = ri.activityInfo.loadBanner(pm);
-            if (banner == null && ri.activityInfo.applicationInfo != null) {
-                banner = ri.activityInfo.applicationInfo.loadBanner(pm);
-            }
+            Drawable banner = loadBanner(pm, ri);
             String label = String.valueOf(ri.loadLabel(pm));
             String glyphName = GLYPHS.get(pkg);
             int glyph = glyphName == null ? 0
@@ -249,6 +248,29 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         pinnedCount = docked;
         dockCount = theme == Theme.DOCK ? Math.min(docked, maxDock) : 0;
         notifyDataSetChanged();
+    }
+
+    /**
+     * The app's banner, taken at xhdpi or better: on a TV running at a lower density (this box is hdpi) the system would
+     * otherwise pick the small bitmap and the focus zoom would blur it. Idea from Gathin23/cleanyourtv.
+     */
+    private Drawable loadBanner(PackageManager pm, ResolveInfo ri) {
+        int id = ri.activityInfo.banner;
+        if (id == 0) id = ri.activityInfo.applicationInfo.banner;
+        if (id != 0) {
+            try {
+                Resources resources = pm.getResourcesForApplication(ri.activityInfo.applicationInfo);
+                int density = Math.max(DisplayMetrics.DENSITY_XHIGH, ctx.getResources().getDisplayMetrics().densityDpi);
+                Drawable d = resources.getDrawableForDensity(id, density, null);
+                if (d != null) return d;
+            } catch (PackageManager.NameNotFoundException | Resources.NotFoundException ignored) {
+            }
+        }
+        Drawable banner = ri.activityInfo.loadBanner(pm);
+        if (banner == null && ri.activityInfo.applicationInfo != null) {
+            banner = ri.activityInfo.applicationInfo.loadBanner(pm);
+        }
+        return banner;
     }
 
     // ---- dock editing ----------------------------------------------------------------------------

@@ -43,8 +43,8 @@
     <string name="menu_reco">Recomendaciones</string>
     <string name="reco_on">Activadas</string>
     <string name="reco_off">Desactivadas</string>
-    <string name="reco_needs_permission">Falta el permiso</string>
-    <string name="reco_permission_denied">Sin permiso para leer las recomendaciones del TV. Se da una vez por ADB (ver README).</string>
+    <string name="reco_needs_permission">Falta activarlo por ADB</string>
+    <string name="reco_permission_denied">Falta el acceso para leer lo que reproduces. Se da una vez por ADB (ver README).</string>
 
     <string name="wallpaper_new">Nuevo fondo de la web</string>
     <string name="wallpaper_next">Fondo siguiente</string>

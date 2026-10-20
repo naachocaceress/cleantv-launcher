@@ -47,6 +47,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
@@ -60,7 +61,7 @@ import java.util.List;
  * its animations; the grid has none: the highlight sits on the focused tile and focus changes and scrolling show at
  * once.
  */
-public class MainActivity extends Activity implements AppAdapter.TileListener {
+public class MainActivity extends Activity implements AppAdapter.TileListener, RecoAdapter.Listener {
 
     /** Tiles per row and dock slots (res/values/config.xml, columns). Set in onCreate. */
     static int COLUMNS = 4;
@@ -95,6 +96,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private static final String PREF_WALLPAPER = "wallpaper";   // "auto", or the file name of a downloaded wallpaper
     private static final String PREF_THEME = "theme";           // Theme.key()
     private static final int TILES_COLUMNS = AppAdapter.TILES_COLUMNS;   // wide tiles per row (TILES)
+    private static final String PREF_RECO = "reco";             // the Continue watching row; on unless switched off
+    private static final int REQUEST_RECO = 1;
     private Theme theme = Theme.DOCK;
     private DockDecoration dockDecoration;
     private ShelfDecoration shelfDecoration;
@@ -104,6 +107,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private float glassTargetX, glassTargetY;
     private boolean glassShown;
     private int lastFocused = 0;
+    private RecoStore recoStore;
+    private RecoAdapter recoAdapter;
+    private RecyclerView recoRow;
+    private View recoBlock;
+    private int recoLast = 0;
     private float density;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -171,6 +179,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         configureGrid();
         applyChrome();
 
+        recoStore = new RecoStore(this);
+        recoBlock = findViewById(R.id.recoBlock);
+        recoRow = findViewById(R.id.recoRow);
+        recoRow.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        recoRow.setItemAnimator(null);
+        recoAdapter = new RecoAdapter(recoStore, this);
+        recoRow.setAdapter(recoAdapter);
+
         // Keep the grid's padding right for the theme (in DOCK it also pushes the dock row to the bottom).
         grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> applyGridPadding());
 
@@ -185,6 +201,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         View.OnKeyListener pillKeys = (v, keyCode, event) -> {
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && recoShown()) {   // the recommendations sit between the header and the apps
+                focusReco();
+                return true;
+            }
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v.getId() == R.id.btnWifi) return true;
             return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == R.id.btnSettings;
         };
@@ -211,6 +231,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         dockDot.setAlpha(0f);
         ambient.setAlpha(0f);
         adapter.reload();
+        refreshReco();
         updateGreeting();
         updateBackground();
         updateWifiLabel();
@@ -345,6 +366,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     public void onTileFocused(int position, View card) {
         lastFocused = position;
+        updateRecoVisibility();
         if (adapter.isDocked(position)) {
             onDockFocused(position, card);
             return;
@@ -470,6 +492,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     public boolean onTileVerticalKey(int position, int keyCode) {
+        if (keyCode == KeyEvent.KEYCODE_DPAD_UP && recoShown() && isFirstRow(position)) {
+            focusReco();   // Up from the first row goes to the recommendations, and from there to the header
+            grid.playSoundEffect(android.view.SoundEffectConstants.NAVIGATION_UP);
+            return true;
+        }
         if (theme == Theme.CIRCLES) return keyCode == KeyEvent.KEYCODE_DPAD_DOWN;   // one row: Down stays, Up reaches the header
         if (theme != Theme.DOCK) return false;   // TILES is a plain grid: Android's focus search does it
         int count = adapter.getItemCount();
@@ -686,6 +713,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             addConfigRow(rows, dialog, R.drawable.ic_theme, getString(R.string.menu_theme), false, false, themeScreen);
             addConfigRow(rows, dialog, R.drawable.ic_wallpaper, getString(R.string.menu_wallpaper), false, false,
                     wallpaperScreen);
+            View recoRowView = addConfigRow(rows, dialog, R.drawable.ic_theme, getString(R.string.menu_reco), false, false,
+                    () -> {
+                        setRecoEnabled(!recoEnabled());
+                        menu[0].run();
+                        rows.getChildAt(2).requestFocus();   // stay on the switch
+                    });
+            TextView recoStatus = recoRowView.findViewById(R.id.status);
+            recoStatus.setVisibility(View.VISIBLE);
+            recoStatus.setText(!recoEnabled() ? R.string.reco_off
+                    : recoStore.hasPermission() ? R.string.reco_on : R.string.reco_needs_permission);
             addConfigRow(rows, dialog, R.drawable.ic_settings, getString(R.string.menu_android), false, true,
                     () -> open(new Intent(Settings.ACTION_SETTINGS)));
             if (hasInputs()) {   // boxes without HDMI/AV inputs or a tuner don't get this one
@@ -721,7 +758,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     /** A row in the sidebar; a dot marks the selected one. iconRes 0 means no icon. */
-    private void addConfigRow(LinearLayout rows, Dialog dialog, int iconRes, String title, boolean selected,
+    private View addConfigRow(LinearLayout rows, Dialog dialog, int iconRes, String title, boolean selected,
                               boolean closeAfter, Runnable action) {
         View row = getLayoutInflater().inflate(R.layout.item_input, rows, false);
         ImageView icon = row.findViewById(R.id.icon);
@@ -735,6 +772,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             action.run();
         });
         rows.addView(row);
+        return row;
     }
 
     /** After the dock changes, focus the app's new tile once the grid has re-laid out. */
@@ -777,6 +815,109 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         });
         grid.scrollToPosition(pos);
+    }
+
+    // ---- recommendations -------------------------------------------------------------------------
+    // A row of "Continue watching" cards between the header and the apps (see RecoStore). Up from the first row of apps
+    // reaches it, Up from it reaches the header and Down returns to the app we came from. It can be switched off in
+    // Settings, and it hides itself when there is nothing to show or the app list has scrolled down.
+
+    private boolean recoEnabled() {
+        return getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_RECO, true);
+    }
+
+    private void setRecoEnabled(boolean on) {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(PREF_RECO, on).apply();
+        if (on && !recoStore.hasPermission()) requestPermissions(new String[]{RecoStore.PERMISSION}, REQUEST_RECO);
+        refreshReco();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_RECO) return;
+        if (recoStore.hasPermission()) refreshReco();
+        else Toast.makeText(this, R.string.reco_permission_denied, Toast.LENGTH_LONG).show();
+    }
+
+    /** Reads the list again (off the main thread) every time the home screen comes back. */
+    private void refreshReco() {
+        if (!recoEnabled()) {
+            recoAdapter.setItems(Collections.emptyList());
+            updateRecoVisibility();
+            return;
+        }
+        recoStore.load(items -> {
+            if (isDestroyed() || !recoEnabled()) return;
+            recoAdapter.setItems(items);
+            updateRecoVisibility();
+        });
+    }
+
+    private boolean recoShown() {
+        return recoBlock.getVisibility() == View.VISIBLE;
+    }
+
+    /** Gone when off or empty; hidden (so it cannot take focus) while the focus is below the first rows of apps. */
+    private void updateRecoVisibility() {
+        boolean any = recoEnabled() && recoAdapter.getItemCount() > 0;
+        boolean show = any && isRecoRow(lastFocused);
+        recoBlock.setVisibility(show ? View.VISIBLE : any ? View.INVISIBLE : View.GONE);
+        View focused = getCurrentFocus();
+        if (!show && focused != null && focused.getId() == R.id.recoCard) focusTile(lastFocused);
+    }
+
+    /** The rows of apps shown together with the recommendations (the lower ones scroll through their space). */
+    private boolean isRecoRow(int position) {
+        if (theme == Theme.CIRCLES) return true;
+        if (theme == Theme.TILES) return position < 2 * TILES_COLUMNS;   // the plate and the row peeking in below it
+        return isFirstRow(position);
+    }
+
+    /** The row Up leaves from to reach the recommendations: the dock, the plate or the single row of circles. */
+    private boolean isFirstRow(int position) {
+        if (theme == Theme.CIRCLES) return true;
+        if (theme == Theme.TILES) return position < TILES_COLUMNS;
+        int dock = adapter.dockCount();
+        return position < (dock > 0 ? dock : COLUMNS);
+    }
+
+    private void focusReco() {
+        final int idx = Math.max(0, Math.min(recoLast, recoAdapter.getItemCount() - 1));
+        recoRow.scrollToPosition(idx);
+        recoRow.post(() -> {
+            RecyclerView.ViewHolder vh = recoRow.findViewHolderForAdapterPosition(idx);
+            if (vh != null) vh.itemView.findViewById(R.id.recoCard).requestFocus();
+        });
+    }
+
+    @Override
+    public void onRecoOpen(RecoStore.Item item) {
+        try {
+            startActivity(item.intent);
+        } catch (Exception e) {   // the app was removed, or the entry points at something it no longer has
+            Toast.makeText(this, getString(R.string.cant_open, item.title), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    public boolean onRecoKey(int position, int keyCode) {
+        recoLast = position;
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+                return position == 0;   // the ends do not fall through to the header buttons
+            case KeyEvent.KEYCODE_DPAD_RIGHT:
+                return position == recoAdapter.getItemCount() - 1;
+            case KeyEvent.KEYCODE_DPAD_UP:
+                btnWifi.requestFocus();
+                return true;
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+                focusTile(lastFocused);
+                recoRow.playSoundEffect(android.view.SoundEffectConstants.NAVIGATION_DOWN);
+                return true;
+            default:
+                return false;
+        }
     }
 
     // ---- top bar ---------------------------------------------------------------------------------

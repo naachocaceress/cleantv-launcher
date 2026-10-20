@@ -33,6 +33,13 @@
     <string name="theme_circles">Circles</string>
     <string name="theme_tiles">Tiles</string>
 
+    <string name="reco_title">Continue watching</string>
+    <string name="menu_reco">Recommendations</string>
+    <string name="reco_on">On</string>
+    <string name="reco_off">Off</string>
+    <string name="reco_needs_permission">Permission needed</string>
+    <string name="reco_permission_denied">No permission to read the TV\'s recommendations. Grant it once over ADB (see the README).</string>
+
     <string name="wallpaper_new">New wallpaper from the web</string>
     <string name="wallpaper_next">Next wallpaper</string>
     <string name="wallpaper_prev">Previous wallpaper</string>

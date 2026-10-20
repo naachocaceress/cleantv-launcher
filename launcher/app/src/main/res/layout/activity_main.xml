@@ -181,6 +181,40 @@
         </FrameLayout>
     </LinearLayout>
 
+    <!-- Recommendations (Android TV "Watch Next"): a row of cards under the header, shown while the first row of apps is
+         focused and hidden when the list scrolls down, so it never meets the cards. Off in Settings, hidden when empty. -->
+    <LinearLayout
+        android:id="@+id/recoBlock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginTop="112dp"
+        android:paddingStart="56dp"
+        android:paddingEnd="56dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/recoLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:text="@string/reco_title"
+            android:textColor="#CCFFFFFF"
+            android:textSize="16sp"
+            android:fontFamily="@font/open_sans"
+            android:fontVariationSettings="'wght' 500" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recoRow"
+            android:layout_width="match_parent"
+            android:layout_height="124dp"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:overScrollMode="never"
+            android:scrollbars="none" />
+    </LinearLayout>
+
     <!-- CIRCLES theme: the focused app's name, big, over the wallpaper, and the date under it. -->
     <LinearLayout
         android:id="@+id/circlesHero"

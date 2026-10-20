@@ -56,7 +56,19 @@ público, CC BY, CC BY-SA). *Nuevo fondo de la web* descarga una, la recorta a 1
 privado del launcher junto con su autor y licencia. Podés regenerar la lista con
 [`tools/make_wallpaper_catalog.py`](tools/make_wallpaper_catalog.py) o sumar la tuya con `wallpaper_catalog_url` en
 [`config.xml`](launcher/app/src/main/res/values/config.xml) (un JSON con `{"title", "credit", "url"}`). Es lo único
-para lo que el launcher usa el permiso de internet.
+para lo que el launcher usa el permiso de internet (además de bajar los carteles de *Continuar viendo*, abajo).
+
+## Continuar viendo
+
+Entre el encabezado y las apps aparece una fila con lo que las apps dejan en la lista *Watch Next* de Android TV
+(series y películas que seguís viendo, próximos episodios). Se lee del propio TV cuando volvés al inicio: no hay
+cuentas, claves ni consultas periódicas, y solo se baja el cartel de cada entrada. Apretá ↑ desde la primera fila de apps
+para llegar a ella, OK para abrir el contenido en su app y ↓ para volver. Se activa o desactiva en *Ajustes → Recomendaciones*;
+si no hay nada para mostrar, la fila no aparece.
+
+Leer lo que publican las otras apps necesita un permiso que `build-and-install.sh` da una vez por ADB. A mano:
+`adb shell pm grant com.gathin.tvhome com.android.providers.tv.permission.READ_EPG_DATA`. Qué aparece depende de cada app:
+Netflix, YouTube o Disney+ suelen publicar ahí; otras, como Stremio, solo si lo implementan.
 
 ## Instalación
 

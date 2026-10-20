@@ -26,6 +26,7 @@ printf '%s\n' \
   "pm install -r /data/local/tmp/tvhome.apk" \
   "rm -f /data/local/tmp/tvhome.apk" \
   "cmd package set-home-activity --user 0 com.gathin.tvhome" \
+  "pm grant com.gathin.tvhome com.android.providers.tv.permission.READ_EPG_DATA" \
   | "$PY" -I ../tools/tv.py --batch
 if [ "${DISABLE_STOCK:-0}" = "1" ]; then
   "$PY" -I ../tools/tv.py "pm disable-user --user 0 $STOCK_LAUNCHER"

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A card of the recommendations row: the poster (16:9), the title over a dark fade, and a thin bar of progress. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:paddingStart="6dp"
+    android:paddingEnd="6dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp"
+    android:clipChildren="false"
+    android:clipToPadding="false">
+
+    <FrameLayout
+        android:id="@+id/recoCard"
+        android:layout_width="168dp"
+        android:layout_height="94dp"
+        android:background="@drawable/banner_bg"
+        android:foreground="@drawable/banner_focus"
+        android:focusable="true"
+        android:clickable="true">
+
+        <ImageView
+            android:id="@+id/recoImage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:id="@+id/recoTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:background="@drawable/reco_fade"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="#FFFFFFFF"
+            android:textSize="12sp"
+            android:fontFamily="@font/open_sans"
+            android:fontVariationSettings="'wght' 500" />
+
+        <View
+            android:id="@+id/recoProgress"
+            android:layout_width="0dp"
+            android:layout_height="3dp"
+            android:layout_gravity="bottom|start"
+            android:background="#FFFFFFFF"
+            android:visibility="gone" />
+    </FrameLayout>
+</FrameLayout>

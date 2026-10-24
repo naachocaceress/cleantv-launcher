@@ -2,87 +2,82 @@
 
 *[English version](README.en.md)*
 
-Una pantalla de inicio limpia para TV boxes con Android TV, con **tres temas** intercambiables, fondos de pantalla que se
-descargan cuando los pedís y sin anuncios, cuentas ni rastreo. Se adapta al idioma del TV (español o inglés).
+Una pantalla de inicio limpia para TV boxes con Android TV, sin anuncios, cuentas ni rastreo. Es un fork de
+**[Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv)** (el launcher base, la guía de limpieza del TV, 25 idiomas,
+temas, biblioteca de apps, tarjetas de módulos y teclas del control vienen de ahí) con unos pocos añadidos propios.
 
-> **Basado en el trabajo de otras personas.** Es un fork de
-> [itsmeterrylin/fire-tv-cleanup](https://github.com/itsmeterrylin/fire-tv-cleanup), que a su vez es un fork de
-> [Gathin23/tv-vibehack](https://github.com/Gathin23/tv-vibehack). El launcher, las herramientas de limpieza y la idea
-> original son de ellos (licencia MIT, ver [Licencia](#licencia)). Lo que cambió este fork está
-> [más abajo](#qué-cambió-este-fork).
+> **Basado en el trabajo de otras personas.** La línea es [Gathin23/tv-vibehack](https://github.com/Gathin23/tv-vibehack) →
+> [itsmeterrylin/fire-tv-cleanup](https://github.com/itsmeterrylin/fire-tv-cleanup) → este repositorio, y el launcher
+> actual se puso al día con [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv) (licencia MIT, ver
+> [Licencia](#licencia)). Todo lo que no figura en [Qué agrega este fork](#qué-agrega-este-fork) es de ellos y se documenta
+> en su README, en [`docs/`](docs/) y en [`themes/`](themes/).
 
-| Dock | Círculos | Mosaicos |
-|---|---|---|
-| ![Tema Dock](docs/tema-dock.jpg) | ![Tema Círculos](docs/tema-circulos.jpg) | ![Tema Mosaicos](docs/tema-mosaicos.jpg) |
+## Qué agrega este fork
 
-Capturas de un ZTE B866V2 (Android 9). El fondo es una imagen de NASA/ESA/CSA.
+### Continuar viendo
 
-## Los tres temas
-
-Los diseños están **inspirados** en pantallas de inicio conocidas, pero no son copias ni usan sus nombres ni sus marcas.
-
-| Tema | Qué muestra | Inspirado en |
-|---|---|---|
-| **Dock** | Un dock de hasta 8 íconos que crecen al enfocarlos, con el nombre arriba y un brillo del color de la app. Con ↓ aparecen las demás apps como tarjetas. | El dock de macOS |
-| **Círculos** | Una fila de íconos redondos abajo que se desplaza hacia el costado, con el nombre de la app enfocada en grande. | La pantalla de inicio de Google TV |
-| **Mosaicos** | Mosaicos anchos sobre una bandeja translúcida; el enfocado crece sin salirse de la bandeja, y la fila siguiente asoma abajo. | La pantalla de inicio de tvOS |
-
-El encabezado (saludo, hora, fecha, conexión y Ajustes) es el mismo en todos los temas; solo cambia cómo se muestran las apps.
-
-## Encabezado
-
-- **Conexión:** un solo ícono. Ethernet si está por cable, Wi-Fi (con barras de señal) si está por Wi-Fi, y el mismo
-  ícono tachado si no hay internet o no hay red.
-- **Ajustes:** abre un panel a la derecha con tres botones: **Tema**, **Fondo de pantalla** y **Ajustes de Android**.
-  Tema y Fondo abren su propia pantalla dentro del panel (con *Volver*); Ajustes de Android abre directamente los
-  ajustes del sistema. Si la caja tiene entradas HDMI o sintonizador, aparece también **Entradas**.
-
-![Panel de ajustes](docs/ajustes.jpg)
-
-## Cómo se usa
-
-- **Fijar una app:** mantené OK (o apretá Menú) sobre la app y elegí *Fijar en el dock* (no existe en Círculos, donde todas las apps van en una sola fila).
-- **Reordenar el dock:** mantené OK sobre una app del dock, elegí *Mover*, usá ← y →, y OK al terminar. Solo se mueven
-  las apps fijadas (en Mosaicos también las demás, con las cuatro flechas, y en Círculos todas, con ← →); en los otros temas el resto va en orden
-  alfabético, y por eso fijar tiene sentido. Cada tema guarda sus propias apps fijadas.
-- Algunas cajas capturan la tecla Menú para su propio diálogo; en ese caso mantené OK.
-- La grilla no tiene animaciones; el dock conserva el crecimiento, el nombre y el brillo.
-
-## Fondos de pantalla
-
-No se incluye ninguno aparte de las fotos originales según la hora. [`wallpapers.json`](launcher/app/src/main/assets/wallpapers.json)
-es una lista de enlaces a imágenes de libre uso de [Wikimedia Commons](https://commons.wikimedia.org) (CC0, dominio
-público, CC BY, CC BY-SA). *Nuevo fondo de la web* descarga una, la recorta a 1920×1080 y la guarda en el almacenamiento
-privado del launcher junto con su autor y licencia. Podés regenerar la lista con
-[`tools/make_wallpaper_catalog.py`](tools/make_wallpaper_catalog.py) o sumar la tuya con `wallpaper_catalog_url` en
-[`config.xml`](launcher/app/src/main/res/values/config.xml) (un JSON con `{"title", "credit", "url"}`). Es lo único
-para lo que el launcher usa el permiso de internet (además de bajar los carteles de *Continuar viendo*, abajo).
-
-## Continuar viendo
-
-Entre el encabezado y las apps aparece una fila de tarjetas con lo último que viste, como en Google TV. Cada tarjeta lleva
-la app, el título, el cartel y cuánto avanzaste. Viene de dos lugares, mezclados del más reciente al más viejo:
+Entre el encabezado y el dock aparece una fila de tarjetas con lo último que viste, como en Google TV. Cada tarjeta lleva la
+app, el título, el cartel y cuánto avanzaste. Viene de dos lugares, mezclados del más reciente al más viejo:
 
 - **Lo que las apps publican en *Watch Next* de Android TV** (series y películas que seguís viendo, próximos episodios).
-  Se lee del propio TV al volver al inicio. Netflix, YouTube o Disney+ lo hacen en un TV con Google TV, pero **en un
-  TV box sin servicios de Google casi ninguna app publica nada**, así que esta fuente suele estar vacía.
-- **El historial propio del launcher**, que cubre ese caso: un servicio mínimo mira las sesiones de reproducción de las
-  otras apps (la misma información que muestra la notificación de "reproduciendo") y guarda título, canal o serie, cartel
-  y posición. Sirve con cualquier app que informe lo que reproduce (YouTube, Stremio...). Las que no informan el título
-  (Netflix, Prime Video) aparecen igual como "usaste esta app", con su banner. OK abre la app; si la app publicó un enlace
-  al contenido, abre ese contenido. Todo se guarda en el almacenamiento privado del launcher, no sale del TV ni se
-  lee ninguna notificación.
+  Netflix, YouTube o Disney+ lo hacen en un TV con Google TV, pero **en un TV box sin servicios de Google casi ninguna app
+  publica nada**, así que esta fuente suele estar vacía.
+- **El historial propio del launcher**, que cubre ese caso: un servicio mínimo mira las sesiones de reproducción de las otras
+  apps (la misma información que muestra la notificación de "reproduciendo") y guarda título, canal o serie, cartel y
+  posición. Sirve con cualquier app que informe lo que reproduce (YouTube, Stremio...). Las que no informan el título
+  (Netflix, Prime Video) aparecen igual como "usaste esta app", con su banner. OK abre la app, o el contenido si la app
+  publicó un enlace a él. Todo se guarda en el almacenamiento privado del launcher; no sale del TV y no se lee ninguna
+  notificación.
 
-No hay cuentas, claves ni consultas periódicas; solo se baja el cartel de una entrada cuando se muestra. Apretá ↑ desde
-la primera fila de apps para llegar a la fila, OK para abrir y ↓ para volver. Se activa o desactiva en
-*Ajustes → Recomendaciones* (dice "Falta activarlo por ADB" si no se dio el acceso). Sin nada para mostrar, la fila no aparece.
+La fila se ve mientras el dock tiene el foco: ↑ desde el dock llega a ella, ↑ otra vez llega a los botones de arriba y ↓
+vuelve al dock. Se apaga en *Ajustes del launcher → Continuar viendo*; sin nada para mostrar, no aparece.
 
-El acceso se da una vez por ADB y lo hacen `launcher/build-and-install.sh` y `launcher/install.ps1`. A mano:
+El acceso se da una sola vez por ADB, y los scripts de instalación ya lo hacen. A mano:
 
 ```bash
 adb shell cmd notification allow_listener com.gathin.tvhome/com.gathin.tvhome.MediaHistoryService
-adb shell pm grant com.gathin.tvhome com.android.providers.tv.permission.READ_EPG_DATA
 ```
+
+### Actualizar sin perder los ajustes
+
+Android no deja instalar una versión firmada con otra clave encima de la instalada: hay que desinstalar, y eso borra los
+ajustes del launcher. Para que no pase, **todas las compilaciones se firman con la misma clave**, que está en el repositorio
+(`launcher/signing/cleantv.keystore`, la clave debug de siempre con su clave `android`). No protege nada y no hace falta que
+lo haga: es un launcher que se instala a mano, no una app de tienda. Con esa clave, `adb install -r` (o los scripts)
+actualizan encima y se conservan ajustes, orden e historial. Un TV que ya tiene una versión firmada con otra clave necesita
+una desinstalación, una sola vez.
+
+### Instalar en Windows con `adb.exe`
+
+[`launcher/install.ps1`](launcher/install.ps1) compila, instala en uno o varios TV, lo deja como inicio y activa el historial.
+No necesita Python (los scripts de upstream sí) y no toca el launcher de fábrica:
+
+```powershell
+launcher\install.ps1 192.168.0.222 192.168.0.221
+```
+
+### Tema Manhattan
+
+[`themes/manhattan/`](themes/manhattan/) pone las fotos de Manhattan que traía este fork (mañana, tarde, atardecer y noche, con
+la franja horaria que elige el propio launcher), seis columnas y el dock con Netflix, Prime Video, YouTube, Disney+,
+Crunchyroll y Stremio. Es un tema común de upstream: se empuja sin recompilar (ver [`themes/README.md`](themes/README.md)).
+Sin Python, a mano:
+
+```powershell
+$d = "/sdcard/Android/data/com.gathin.tvhome/files"
+adb shell mkdir -p $d/wallpapers
+adb push themes\manhattan\config.json $d/config.json
+Get-ChildItem themes\manhattan\wallpapers | ForEach-Object { adb push $_.FullName "$d/wallpapers/$($_.Name)" }
+adb shell am force-stop com.gathin.tvhome
+```
+
+Las fotos son de Unsplash (no MIT): ver [`themes/manhattan/CREDITS.md`](themes/manhattan/CREDITS.md).
+
+### Valores por defecto
+
+[`config.xml`](launcher/app/src/main/res/values/config.xml) trae el dock de este fork (Netflix, Prime Video, YouTube, Disney+,
+Crunchyroll, Stremio), `launcher_settings_button` y `tile_menu` activados (OK en *Ajustes* abre los ajustes del launcher y
+mantener OK en una app ofrece Mover e Información) y oculta atajos de TV box que no se usan.
 
 ## Instalación
 
@@ -90,94 +85,53 @@ Necesitás JDK 17 o más nuevo y el Android SDK (plataforma 34), y el TV en la m
 (Ajustes → Preferencias del dispositivo → Acerca de → apretá OK siete veces en **Compilación**; después, Opciones de
 desarrollador → Depuración USB).
 
-En Windows, con Android Studio o el SDK instalados (compila, instala en uno o varios TV, lo deja como inicio y activa el
-historial):
-
-```powershell
-launcher\install.ps1 192.168.0.222 192.168.0.221
-```
-
-En macOS o Linux:
+Windows: `launcher\install.ps1 <ip del TV>` (arriba). macOS y Linux, o Windows con Python, con los scripts de upstream:
 
 ```bash
 python3 -m venv tools/venv && tools/venv/bin/pip install -r tools/requirements.txt
 TV_HOST=192.168.1.50 launcher/build-and-install.sh      # la IP de tu TV
 ```
 
-Compila el APK, lo instala y lo deja como inicio. El launcher de fábrica **no se toca** salvo que agregues
-`DISABLE_STOCK=1` (primero instalá, después deshabilitá, o Inicio cae en una app de pruebas de fábrica). Para volver,
-desinstalá el launcher o elegí el otro cuando Android pregunte.
+Compila el release, lo instala y lo deja como inicio. El launcher de fábrica se detecta y se deshabilita **solo después** de
+comprobar que este arranca (ver la guía de upstream); `STOCK_LAUNCHER=none` no toca nada. Gradle funciona con el JDK de
+Android Studio (`JAVA_HOME=…\Android Studio\jbr`) y un `launcher/local.properties` con `sdk.dir=` en formato `C:/Users/…/Sdk`.
+Con `-PlauncherApplicationId=com.gathin.tvhomedev` se instala una copia de prueba al lado, sin tocar el inicio.
 
-> Gradle funciona con el JDK que trae Android Studio (`JAVA_HOME=…/Android Studio/jbr`) y un `launcher/local.properties`
-> con `sdk.dir=` en el formato de rutas con `/` (`C:/Users/…/Android/Sdk`).
+El id de la aplicación sigue siendo `com.gathin.tvhome`, como en el original: mantenerlo conserva tus ajustes al actualizar.
 
-### Actualizar sin perder los ajustes
+## Mantener el fork al día con upstream
 
-Android no deja instalar una versión firmada con otra clave encima de la instalada: hay que desinstalar, y eso borra los
-ajustes del launcher. Para que no pase, **todas las compilaciones se firman con la misma clave**, que está en el
-repositorio (`launcher/signing/cleantv.keystore`, la clave debug de siempre con su clave `android`). No protege nada
-y no hace falta: es un launcher que se instala a mano, no una app de tienda. Con esa clave, `adb install -r` (o los
-scripts) actualizan encima y se conservan ajustes, orden y el historial. Si un TV ya tiene una versión firmada con otra
-clave, la primera vez hay que desinstalar; de ahí en más ya no.
+```bash
+git remote add upstream https://github.com/Gathin23/cleanyourtv.git   # una vez
+git fetch upstream && git merge upstream/main
+```
 
-El id de la aplicación sigue siendo `com.gathin.tvhome`, como en el original. Es interno y mantenerlo conserva tus ajustes
-al actualizar.
-## Configuración
+Los puntos donde este fork toca archivos de upstream son pocos, para que el merge duela poco:
+`MainActivity.java` (sección *Continue watching*, tres enganches en `onResume`, `onTileFocused` y `onTileVerticalKey`),
+`activity_main.xml` (bloque `recoBlock`), `LauncherSettingsActivity.java` y su layout (una fila), `AndroidManifest.xml`
+(permisos y servicio), `config.xml` (dock, apps ocultas y dos interruptores), `app/build.gradle` (la firma) y los scripts de
+instalación (dos líneas). Todo lo demás son archivos nuevos: `RecoStore`, `RecoAdapter`, `HistoryStore`,
+`MediaHistoryService`, `install.ps1`, `themes/manhattan/`.
 
-[`launcher/app/src/main/res/values/config.xml`](launcher/app/src/main/res/values/config.xml):
+Upstream también trae `.github/` (su CI, con un límite de 480 KB para el APK, y un bot de mantenimiento programado),
+`CLAUDE.md`, `AGENTS.md` y `GEMINI.md` (reglas de sus mantenedores para agentes). Este fork no los usa: después de cada merge,
+`git rm -r .github CLAUDE.md AGENTS.md GEMINI.md`.
 
-| Clave | Para qué sirve |
-|---|---|
-| `dock_apps` | El dock inicial, en orden. Después se edita desde el TV. |
-| `hidden_apps` | Paquetes que nunca se muestran. |
-| `live_tv_package` | La app del sintonizador, para el menú Entradas. Vacío para omitirla. |
-| `columns`, `dock_max`, `dock_slots` | Tarjetas por fila, máximo de apps en el dock y qué tan juntos van sus íconos. |
-| `wallpaper_catalog_url` | Lista opcional de fondos propios. |
+Qué se quitó respecto de la versión anterior del fork, por existir algo equivalente (y mejor mantenido) en upstream: los
+temas Dock, Círculos y Mosaicos (la placa de vidrio de upstream es el Mosaicos), los fondos descargados de Wikimedia, el
+salvapantallas de fotos (upstream trae el del reloj), mover apps (menú de tarjeta y *Reordenar apps*) y las traducciones propias.
 
-Para poner tu nombre en el saludo, agregá `tvhome.userName=Alex` a `launcher/local.properties`.
+## Herramientas de limpieza
 
-### Íconos de las apps
+Vienen de upstream: la guía para limpiar y configurar el TV por ADB ([`PROMPT.md`](PROMPT.md)), el cliente ADB en Python
+([`tools/tv.py`](tools/tv.py)), las listas por modelo de TV en [`examples/`](examples/) y los scripts
+[`tools/disable.sh`](tools/disable.sh) y [`tools/restore.sh`](tools/restore.sh). Los paquetes se deshabilitan, nunca se
+desinstalan. Ver [CONTRIBUTING.md](CONTRIBUTING.md) para sumar tu modelo.
 
-El dock y los Mosaicos usan fichas cuadradas con la marca de cada app (Netflix, YouTube, Prime Video, Disney+ y más).
-Son logos registrados, así que **no están en el repo**: [`tools/make_dock_icons.py`](tools/make_dock_icons.py) los dibuja
-en tu máquina (necesita Pillow y baja las marcas una vez del paquete
-[Dashboard Icons](https://github.com/homarr-labs/dashboard-icons)). Sin ellos, cada app muestra su propio ícono.
-
-## Qué cambió este fork
-
-Respecto de [itsmeterrylin/fire-tv-cleanup](https://github.com/itsmeterrylin/fire-tv-cleanup):
-
-- Tres temas intercambiables (Dock, Círculos y Mosaicos) y un panel de Ajustes para elegirlos.
-- Fondos descargados bajo demanda desde un catálogo de Wikimedia Commons, en lugar de un conjunto fijo.
-- Un dock más grande (hasta 8 apps, con separación configurable), con íconos sin recuadro, y más íconos de marca
-  (Disney+, Crunchyroll, Stremio, Max, Kodi, Spotify, Plex y otros).
-- Tarjetas con el banner propio de cada app para las que no están en el dock.
-- Mover apps del dock, y sin rebotes ni animaciones de entrada en la grilla.
-- Un encabezado que no cambia entre temas, con un único ícono de conexión (Ethernet, Wi-Fi o tachado) y Ajustes.
-- Interfaz en español e inglés según el idioma del TV.
-- Se **quitaron** el servicio de accesibilidad que redirigía Inicio en Fire TV y el permiso `WRITE_SECURE_SETTINGS`: el
-  launcher es para cajas con Android TV y ya no pide ninguno de los dos.
-- Correcciones de navegación en la grilla (la original se corría unos píxeles con cada movimiento).
-- Fila *Continuar viendo* con Watch Next y un historial propio de lo que se reproduce; firma fija para actualizar sin
-  perder ajustes; script de instalación para Windows. Los banners se cargan en xhdpi o mejor, idea de
-  [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv).
-
-Probado solo en un ZTE B866V2 (Android 9, ARM de 32 bits, 2 GB de RAM). **Fire TV ya no está soportado por este fork**, y
-Samsung Tizen y LG webOS nunca lo estuvieron.
-
-## Herramientas de limpieza (del proyecto original)
-
-Estas partes se heredan sin cambios y este fork no las volvió a probar:
-
-| Ruta | Qué es |
-|---|---|
-| [`PROMPT.md`](PROMPT.md) | Un prompt para que un asistente de código limpie y configure un TV por ADB. |
-| [`tools/tv.py`](tools/tv.py), [`tools/b64push.py`](tools/b64push.py) | Un cliente ADB en Python puro y una subida de archivos por partes. |
-| [`tools/disable.sh`](tools/disable.sh), [`tools/restore.sh`](tools/restore.sh) | Aplican o deshacen una lista de apps a deshabilitar. Los paquetes se deshabilitan, nunca se desinstalan. |
-| [`examples/`](examples/) | Listas por modelo de TV. Ver [CONTRIBUTING.md](CONTRIBUTING.md) para sumar la tuya. |
+Probado solo en dos ZTE B866V2 (Android 9, ARM de 32 bits, 2 GB de RAM). **Fire TV no está soportado por este fork.**
 
 ## Licencia
 
-MIT, ver [`LICENSE`](LICENSE): © 2026 Gathin (obra original) y © 2026 Nacho (cambios de este fork). Las tipografías Outfit y
-Open Sans están bajo la SIL Open Font License, ver `launcher/FONT-LICENSE-OFL.txt`. Los créditos de fotos y recursos están en
-[`CREDITS.md`](CREDITS.md). Los nombres y logos de marcas pertenecen a sus dueños.
+MIT, ver [`LICENSE`](LICENSE): © 2026 Gathin (obra original) y © 2026 Nacho (cambios de este fork). Las tipografías están bajo
+la SIL Open Font License, ver `launcher/FONT-LICENSE-OFL.txt`. Los créditos están en [`CREDITS.md`](CREDITS.md). Los nombres
+y logos de marcas pertenecen a sus dueños.

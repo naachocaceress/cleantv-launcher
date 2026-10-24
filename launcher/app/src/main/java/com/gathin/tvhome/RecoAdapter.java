@@ -24,6 +24,9 @@ final class RecoAdapter extends RecyclerView.Adapter<RecoAdapter.Holder> {
 
         /** A key pressed on a card. Return true when handled; false leaves Left/Right to the list. */
         boolean onRecoKey(int position, int keyCode);
+
+        /** A card took focus: the dock's highlight and top shelf step aside. */
+        void onRecoFocused();
     }
 
     private static final float FOCUS_SCALE = 1.08f;
@@ -121,6 +124,7 @@ final class RecoAdapter extends RecyclerView.Adapter<RecoAdapter.Holder> {
             });
             // Like the app tiles, the card grows at once when it gets focus (no animation).
             card.setOnFocusChangeListener((view, focused) -> {
+                if (focused) listener.onRecoFocused();
                 view.setScaleX(focused ? FOCUS_SCALE : 1f);
                 view.setScaleY(focused ? FOCUS_SCALE : 1f);
             });

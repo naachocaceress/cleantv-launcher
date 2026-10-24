@@ -36,10 +36,10 @@ if (-not $NoBuild) {
         "sdk.dir=" + ($sdk -replace '\\', '/') | Set-Content -Encoding ascii $props
     }
     Push-Location $here
-    try { & .\gradlew.bat assembleDebug -q --console=plain; if ($LASTEXITCODE) { throw 'Gradle build failed.' } }
+    try { & .\gradlew.bat assembleRelease -q --console=plain; if ($LASTEXITCODE) { throw 'Gradle build failed.' } }
     finally { Pop-Location }
 }
-$apk = Join-Path $here 'app\build\outputs\apk\debug\app-debug.apk'
+$apk = Join-Path $here 'app\build\outputs\apk\release\app-release.apk'
 if (-not (Test-Path $apk)) { throw "No APK at $apk" }
 
 foreach ($h in $Hosts) {

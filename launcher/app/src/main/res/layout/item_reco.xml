@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A card of the recommendations row: the poster (16:9), the title over a dark fade, and a thin bar of progress. -->
+<!-- A card of the Continue watching row: the poster (16:9) or the app's banner, the app and title over a dark fade, and a
+     thin bar of progress. Focus is a white ring plus a slight zoom (RecoAdapter). -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
@@ -14,8 +15,8 @@
         android:id="@+id/recoCard"
         android:layout_width="168dp"
         android:layout_height="94dp"
-        android:background="@drawable/banner_bg"
-        android:foreground="@drawable/banner_focus"
+        android:background="@drawable/tile_bg"
+        android:foreground="@drawable/reco_focus"
         android:focusable="true"
         android:clickable="true">
 
@@ -45,8 +46,7 @@
                 android:ellipsize="end"
                 android:textColor="#D9FFFFFF"
                 android:textSize="9sp"
-                android:fontFamily="@font/open_sans"
-                android:fontVariationSettings="'wght' 500"
+                android:fontFamily="@string/font_medium"
                 android:letterSpacing="0.08"
                 android:textAllCaps="true" />
 
@@ -58,8 +58,7 @@
                 android:ellipsize="end"
                 android:textColor="#FFFFFFFF"
                 android:textSize="12sp"
-                android:fontFamily="@font/open_sans"
-                android:fontVariationSettings="'wght' 500" />
+                android:fontFamily="@string/font_medium" />
         </LinearLayout>
 
         <View

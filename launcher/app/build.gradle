@@ -6,24 +6,18 @@ android {
     namespace 'com.gathin.tvhome'
     compileSdk 34
 
-    // Optional name for the greeting ("Good evening, Alex"): tvhome.userName=Alex in launcher/local.properties.
-    def localProps = new Properties()
-    def localFile = rootProject.file('local.properties')
-    if (localFile.exists()) localFile.withInputStream { localProps.load(it) }
-
     defaultConfig {
-        resValue 'string', 'user_name', localProps.getProperty('tvhome.userName', '')
-        applicationId 'com.gathin.tvhome'
+        // Opt-in identity for firmware with a package-name HOME allowlist; see docs/devices/xiaomi-mitv-aetp0-dofus.md.
+        applicationId providers.gradleProperty('launcherApplicationId').getOrElse('com.gathin.tvhome')
         minSdk 26
-        targetSdk 29
-        versionCode 3
-        versionName '2.1'
+        targetSdk 34
+        versionCode 8
+        versionName '2.7'
     }
 
-    // One fixed key for every build, committed on purpose: an update installs over the previous one and keeps the
-    // launcher's settings (Android refuses an update signed with a different key and the only way out is to uninstall,
-    // which wipes them). It is the stock debug key, with its well known password; this is a sideloaded home screen,
-    // not a store app, so nothing is protected by keeping it secret. See "Updating" in the README.
+    // CleanTV fork: one fixed key for every build (committed on purpose), so an update installs over the previous one
+    // and keeps the launcher's settings even when built on another machine. It is the stock Android debug key; this is
+    // a sideloaded home screen, not a store app, so nothing is protected by keeping it secret.
     signingConfigs {
         cleantv {
             storeFile rootProject.file('signing/cleantv.keystore')
@@ -38,8 +32,20 @@ android {
             signingConfig signingConfigs.cleantv
         }
         release {
+            // R8 strips and optimises the code (AndroidX included): smaller APK, faster start on a slow TV CPU.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // Sideloaded over ADB, never published: signed with the fork's fixed key (see signingConfigs).
             signingConfig signingConfigs.cleantv
-            minifyEnabled false
+        }
+    }
+
+    packagingOptions {
+        resources {
+            // Kotlin metadata pulled in by AndroidX's dependencies. This launcher is plain Java and never reads it;
+            // leaving it out saves about 14 KB of every install.
+            excludes += ['kotlin/**', 'META-INF/*.version', 'META-INF/*.kotlin_module', 'DebugProbesKt.bin']
         }
     }
 
@@ -51,4 +57,7 @@ android {
 
 dependencies {
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    implementation 'androidx.dynamicanimation:dynamicanimation:1.0.0'
+    // Test only (never in the APK): plain JVM tests for the module card validators, src/test.
+    testImplementation 'junit:junit:4.13.2'
 }

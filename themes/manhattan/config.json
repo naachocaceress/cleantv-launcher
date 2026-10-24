@@ -1,0 +1,22 @@
+{
+  "dock_apps": [
+    "com.netflix.ninja",
+    "com.amazon.amazonvideo.livingroom",
+    "com.google.android.youtube.tv",
+    "com.disney.disneyplus",
+    "com.crunchyroll.crunchyroid",
+    "com.stremio.one"
+  ],
+  "columns": 6,
+  "rows_below_dock": 1,
+  "background_color": "#05070C",
+  "wallpaper": true,
+  "wallpaper_rotation_minutes": 30,
+  "wallpaper_order": "sequential",
+  "wallpaper_dim": 30,
+  "wallpaper_moods": {
+    "morning": ["1-morning.jpg"],
+    "evening": ["2-afternoon.jpg", "3-evening.jpg"],
+    "night": ["4-night.jpg"]
+  }
+}

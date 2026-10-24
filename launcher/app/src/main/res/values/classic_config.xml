@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CleanTV fork: settings of the Dock and Circles themes (ClassicHome). The dock apps, hidden apps and Live TV package are
+     upstream's (config.xml); these are the rest. -->
+<resources>
+    <!-- Optional: an https link to your own wallpaper list (a JSON array of {"title","credit","url"}), added to the
+         built-in catalog. Leave empty to use only the built-in one. -->
+    <string name="c_wallpaper_catalog_url" translatable="false"></string>
+    <!-- Tiles per row in the grid. -->
+    <integer name="c_columns">4</integer>
+    <!-- The most apps the dock can hold (never below columns, capped at 12). -->
+    <integer name="c_dock_max">8</integer>
+    <!-- How close the dock icons sit: the dock area is split into this many icon cells and the dock is centred in them.
+         9 gives about 83dp between icon centres (icons are 56dp); 8 is roomier, 11 is tight. Never below dock_max,
+         capped at 30. -->
+    <integer name="c_dock_slots">9</integer>
+</resources>

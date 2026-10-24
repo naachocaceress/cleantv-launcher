@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Base language: Spanish. English is in values-en. The TV's own language picks which one is shown. -->
+<resources>
+    <string name="c_app_name">CleanTV</string>
+    <string name="c_inputs">Entradas</string>
+    <string name="c_wifi">Wi-Fi</string>
+    <string name="c_settings">Ajustes</string>
+    <string name="c_connected">Conectado</string>
+    <string name="c_not_connected">Sin dispositivo</string>
+    <string name="c_live_tv">TV en vivo</string>
+    <string name="c_no_inputs">No se encontraron entradas</string>
+    <string name="c_good_morning">Buenos días</string>
+    <string name="c_good_afternoon">Buenas tardes</string>
+    <string name="c_good_evening">Buenas noches</string>
+    <string name="c_good_night">Buenas noches</string>
+    <string name="c_ethernet">Ethernet</string>
+    <string name="c_offline">Sin conexión</string>
+    <string name="c_no_internet">Sin internet</string>
+    <string name="c_your_apps">Tus apps</string>
+
+    <string name="c_pin_to_dock">Fijar en el dock</string>
+    <string name="c_unpin_from_dock">Quitar del dock</string>
+    <string name="c_pin_to_front">Fijar al inicio</string>
+    <string name="c_unpin_from_front">Quitar de las fijadas</string>
+    <string name="c_app_info">Información de la app</string>
+    <string name="c_move">Mover</string>
+    <string name="c_move_hint">Usa las flechas para moverla. Presiona OK al terminar.</string>
+    <string name="c_dock_full">El dock está lleno. Quita una app primero.</string>
+    <string name="c_cant_open">No se puede abrir %1$s</string>
+    <string name="c_not_available">No disponible en este TV</string>
+
+    <string name="c_settings_title">Ajustes</string>
+    <string name="c_menu_theme">Tema</string>
+    <string name="c_menu_wallpaper">Fondo de pantalla</string>
+    <string name="c_menu_android">Ajustes de Android</string>
+    <string name="c_back">Volver</string>
+    <string name="c_theme_dock">Dock</string>
+    <string name="c_theme_circles">Círculos</string>
+    <string name="c_theme_tiles">Mosaicos</string>
+
+    <string name="c_reco_title">Continuar viendo</string>
+    <string name="c_menu_reco">Recomendaciones</string>
+    <string name="c_reco_on">Activadas</string>
+    <string name="c_reco_off">Desactivadas</string>
+    <string name="c_reco_needs_permission">Falta activarlo por ADB</string>
+    <string name="c_reco_permission_denied">Falta el acceso para leer lo que reproduces. Se da una vez por ADB (ver README).</string>
+
+    <string name="c_wallpaper_new">Nuevo fondo de la web</string>
+    <string name="c_wallpaper_next">Fondo siguiente</string>
+    <string name="c_wallpaper_prev">Fondo anterior</string>
+    <string name="c_wallpaper_remove">Quitar este fondo</string>
+    <string name="c_wallpaper_auto">Fondo automático</string>
+    <string name="c_wallpaper_auto_toast">Fondo automático (cambia según la hora)</string>
+    <string name="c_wallpaper_searching">Buscando un fondo…</string>
+    <string name="c_wallpaper_failed">No se pudo descargar un fondo. Revisa la conexión a internet.</string>
+    <string name="c_wallpaper_have_all">Ya descargaste todos los fondos del catálogo.</string>
+    <string name="c_menu_more">Más ajustes del launcher</string>
+</resources>

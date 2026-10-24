@@ -53,4 +53,13 @@
         <item name="android:layout_marginEnd">10dp</item>
         <item name="android:gravity">center</item>
     </style>
+
+    <!-- CleanTV fork: the launcher settings page as a panel on the right edge (see LauncherSettingsActivity) instead of a
+         full-screen page, like the sidebar of the themes. -->
+    <style name="SettingsSidebar" parent="android:Theme.Material.Dialog.NoActionBar">
+        <item name="android:windowMinWidthMajor">0dp</item>
+        <item name="android:windowMinWidthMinor">0dp</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
 </resources>

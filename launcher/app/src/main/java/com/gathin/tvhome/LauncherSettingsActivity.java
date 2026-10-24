@@ -38,6 +38,13 @@ public final class LauncherSettingsActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         setContentView(R.layout.activity_launcher_settings);
+        // CleanTV fork: a panel on the right edge over a dimmed Home (the SettingsSidebar theme), like the sidebar.
+        android.view.Window panel = getWindow();
+        panel.setLayout((int) (520 * getResources().getDisplayMetrics().density),
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT);
+        panel.setGravity(android.view.Gravity.END);
+        panel.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+        panel.setDimAmount(0.45f);
         choices = getSharedPreferences(Config.SETTINGS_NAME, MODE_PRIVATE);
         Config config = Config.load(this);
         View reorderChoice = findViewById(R.id.reorderChoice);

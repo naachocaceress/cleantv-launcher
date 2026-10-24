@@ -15,9 +15,18 @@ photo and its photographer. They are not MIT-licensed like the rest of the repo.
 
 ## Fonts
 
-[Outfit](https://fonts.google.com/specimen/Outfit), under the SIL Open Font License (`launcher/FONT-LICENSE-OFL.txt`).
+[Outfit](https://fonts.google.com/specimen/Outfit) (upstream's launcher, `launcher/FONT-LICENSE-OFL.txt`) and
+[Open Sans](https://fonts.google.com/specimen/Open+Sans) (the Dock and Circles themes), both under the SIL Open Font
+License.
 
 ## Logos
 
 The names and logos of the apps shown on Home are trademarks of their owners. The launcher shows each app's own banner;
 nothing of theirs is bundled in this repo.
+
+## Wallpapers from the web
+
+None are bundled. `tools/make_wallpaper_catalog.py` builds `launcher/app/src/main/assets/c_wallpapers.json`, a list of links to
+freely licensed pictures on [Wikimedia Commons](https://commons.wikimedia.org) (CC0, public domain, CC BY, CC BY-SA). The
+launcher downloads one only when asked, keeps its author and licence next to it (`web-….txt`) and shows them when you step
+to it.

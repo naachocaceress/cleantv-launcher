@@ -209,6 +209,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
     private RecyclerView recoRow;
     private View recoBlock;
     private int recoLast = 0;
+    /** The Dock or Circles theme while it is the saved one (ClassicHome); null for Tiles, which is the rest of this class. */
+    private ClassicHome classic;
     /** App of the last focused tile, so focus follows it when the app list changes. */
     private static String lastFocusedKey;
     private float density;
@@ -357,6 +359,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // CleanTV fork: the Dock and Circles themes run in ClassicHome; Tiles (below) is upstream's own home.
+        if (!ConfigSidebar.THEME_TILES.equals(ConfigSidebar.theme(this))) {
+            classic = new ClassicHome(this);
+            classic.onCreate();
+            reopenSidebarIfAsked();
+            return;
+        }
         setContentView(R.layout.activity_main);
         density = getResources().getDisplayMetrics().density;
         // config.xml, overlaid by config.json from a pushed theme (see Config and tools/theme.sh).
@@ -689,6 +698,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
         btnInputs.setOnKeyListener(pillKeys);
         btnWifi.setOnKeyListener(pillKeys);
         btnSettings.setOnKeyListener(pillKeys);
+        btnSettings.setOnClickListener(v -> showSidebar());   // CleanTV fork: the sidebar; hold OK keeps upstream's menu
+        reopenSidebarIfAsked();
         btnReorder.setOnKeyListener(pillKeys);
         btnLibraryTop.setOnKeyListener(pillKeys);
         if (advancedEffects) {
@@ -793,6 +804,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        if (classic != null) return;
         if (openLauncherSettingsIfAsked(intent)) return;
         if (openInputsIfAsked(intent)) return;
         if (intent == null || !intent.hasCategory(Intent.CATEGORY_HOME)) return;
@@ -811,6 +823,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
     @Override
     protected void onStart() {
         super.onStart();
+        if (classic != null) return;
         stopped = false;
         started = true;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -825,6 +838,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
     @Override
     protected void onResume() {
         super.onResume();
+        if (classic != null) { classic.onResume(); return; }
         // A festival that started or ended while Home was in the background: rebuild with or without it.
         if (festive != festival.active(LocalDate.now())) {
             recreate();
@@ -894,6 +908,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (classic != null) return;
         if (requestCode == LAUNCHER_SETTINGS_REQUEST && resultCode == RESULT_OK
                 && data != null && data.getBooleanExtra(LauncherSettingsActivity.EXTRA_REORDER, false)) {
             getIntent().putExtra(LauncherSettingsActivity.EXTRA_REORDER, true);
@@ -1026,6 +1041,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
     @Override
     public void onUserInteraction() {
         super.onUserInteraction();
+        if (classic != null) return;
         restartIdleClock();
     }
 
@@ -1037,6 +1053,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
     @Override
     protected void onPause() {
         super.onPause();
+        if (classic != null) { classic.onPause(); return; }
         root.removeCallbacks(showIdleClock);
         endReorder();   // Home or another app while reordering keeps the order so far
         wallpaperPlayer.stop();
@@ -1057,6 +1074,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
     @Override
     protected void onStop() {
         super.onStop();
+        if (classic != null) return;
         started = false;
         unregisterReceiver(timeReceiver);
         handler.removeCallbacks(clockCheck);
@@ -1072,6 +1090,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
     @Override
     public void onTrimMemory(int level) {
         super.onTrimMemory(level);
+        if (classic != null) return;
         // RUNNING_LOW and CRITICAL also arrive while Home is visible when an accessibility service keeps the
         // process in the foreground; never blank the screen the owner is looking at.
         boolean due = level >= TRIM_MEMORY_BACKGROUND
@@ -1090,6 +1109,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
+        if (classic != null) return;
         if (hasFocus) {
             startPendingSettingsReorder();
             if (libraryFocusPending && appLibrary == null) focusLibrary();
@@ -1100,6 +1120,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (classic != null) { classic.onDestroy(); return; }
         unregisterReceiver(packageReceiver);
         wallpaperPlayer.close();
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
@@ -1143,6 +1164,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
      */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (classic != null) return super.dispatchKeyEvent(event);   // the Dock and Circles themes handle keys in their views
         if (handleSettingsKey(event)) return true;
         if (tileMenuEnabled && !reordering && openPopup == null && cardPrompt == null
                 && event.getKeyCode() == KeyEvent.KEYCODE_MENU) {
@@ -2332,6 +2354,48 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
             default:
                 return false;
         }
+    }
+
+    // ---- settings sidebar (CleanTV fork) ------------------------------------------------------------
+    // The Settings button opens ConfigSidebar, a panel on the right edge (theme, wallpaper, Continue watching, Android
+    // settings), as in the Dock and Circles themes. Holding OK on the button keeps upstream's own menu.
+
+    private void showSidebar() {
+        new ConfigSidebar(this, sidebarHost()).show(ConfigSidebar.SCREEN_MENU);
+    }
+
+    private ConfigSidebar.Host sidebarHost() {
+        if (classic != null) return classic;
+        return new ConfigSidebar.Host() {
+            @Override public void onTheme(String key) {
+                ConfigSidebar.saveTheme(MainActivity.this, key);
+                recreate();
+            }
+
+            @Override public void onWallpaper() {
+                recreate();
+            }
+
+            @Override public void onReco() {
+                refreshReco();
+            }
+
+            @Override public Runnable inputs() {
+                return btnInputs.getVisibility() == View.VISIBLE ? MainActivity.this::showInputs : null;
+            }
+
+            @Override public Runnable moreSettings() {
+                return () -> startActivityForResult(new Intent(MainActivity.this, LauncherSettingsActivity.class),
+                        LAUNCHER_SETTINGS_REQUEST);
+            }
+        };
+    }
+
+    /** After a wallpaper change the rebuilt Home opens the sidebar again on the wallpaper screen, to keep browsing. */
+    private void reopenSidebarIfAsked() {
+        if (!ConfigSidebar.reopenWallpaper) return;
+        ConfigSidebar.reopenWallpaper = false;
+        getWindow().getDecorView().post(() -> new ConfigSidebar(this, sidebarHost()).show(ConfigSidebar.SCREEN_WALLPAPER));
     }
 
     // ---- top bar ---------------------------------------------------------------------------------

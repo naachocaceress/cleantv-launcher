@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CleanTV fork: strings of the Dock and Circles themes and the sidebar. English is the default, Spanish is in values-es. -->
+<resources>
+    <string name="c_inputs">Inputs</string>
+    <string name="c_settings">Settings</string>
+    <string name="c_connected">Connected</string>
+    <string name="c_not_connected">No device</string>
+    <string name="c_live_tv">Live TV</string>
+    <string name="c_no_inputs">No inputs found</string>
+    <string name="c_good_morning">Good morning</string>
+    <string name="c_good_afternoon">Good afternoon</string>
+    <string name="c_good_evening">Good evening</string>
+    <string name="c_good_night">Good night</string>
+    <string name="c_offline">Offline</string>
+    <string name="c_no_internet">No internet</string>
+    <string name="c_your_apps">Your apps</string>
+
+    <string name="c_pin_to_dock">Pin to the dock</string>
+    <string name="c_unpin_from_dock">Unpin from the dock</string>
+    <string name="c_pin_to_front">Pin to the start</string>
+    <string name="c_unpin_from_front">Unpin</string>
+    <string name="c_app_info">App info</string>
+    <string name="c_move">Move</string>
+    <string name="c_move_hint">Use the arrow keys to move it. Press OK when done.</string>
+    <string name="c_dock_full">The dock is full. Unpin an app first.</string>
+    <string name="c_cant_open">Can\'t open %1$s</string>
+    <string name="c_not_available">Not available on this TV</string>
+
+    <string name="c_settings_title">Settings</string>
+    <string name="c_menu_theme">Theme</string>
+    <string name="c_menu_wallpaper">Wallpaper</string>
+    <string name="c_menu_android">Android settings</string>
+    <string name="c_back">Back</string>
+    <string name="c_theme_circles">Circles</string>
+    <string name="c_theme_tiles">Tiles</string>
+
+    <string name="c_reco_title">Continue watching</string>
+    <string name="c_menu_reco">Recommendations</string>
+    <string name="c_reco_on">On</string>
+    <string name="c_reco_off">Off</string>
+    <string name="c_reco_needs_permission">Needs a one-time ADB step</string>
+    <string name="c_reco_permission_denied">No access to read what you play. Grant it once over ADB (see the README).</string>
+
+    <string name="c_wallpaper_new">New wallpaper from the web</string>
+    <string name="c_wallpaper_next">Next wallpaper</string>
+    <string name="c_wallpaper_prev">Previous wallpaper</string>
+    <string name="c_wallpaper_remove">Remove this wallpaper</string>
+    <string name="c_wallpaper_auto">Automatic wallpaper</string>
+    <string name="c_wallpaper_auto_toast">Automatic wallpaper (changes with the time of day)</string>
+    <string name="c_wallpaper_searching">Finding a wallpaper…</string>
+    <string name="c_wallpaper_failed">Couldn\'t download a wallpaper. Check the internet connection.</string>
+    <string name="c_wallpaper_have_all">You already downloaded every wallpaper in the catalog.</string>
+    <string name="c_app_name">CleanTV</string>
+    <string name="c_ethernet">Ethernet</string>
+    <string name="c_wifi">Wi-Fi</string>
+    <string name="c_theme_dock">Dock</string>
+    <string name="c_menu_more">More launcher settings</string>
+</resources>

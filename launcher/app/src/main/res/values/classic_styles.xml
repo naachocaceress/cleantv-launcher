@@ -11,8 +11,7 @@
         <item name="android:background">@drawable/c_pill_bg</item>
         <item name="android:textColor">@drawable/c_pill_text</item>
         <item name="android:textSize">15sp</item>
-        <item name="android:fontFamily">@font/c_open_sans</item>
-        <item name="android:fontVariationSettings" tools:targetApi="28">\'wght\' 500</item>
+        <item name="android:fontFamily">@string/font_medium</item>
         <item name="android:letterSpacing">0.01</item>
         <item name="android:drawablePadding">9dp</item>
         <item name="android:drawableTint">@drawable/c_pill_text</item>

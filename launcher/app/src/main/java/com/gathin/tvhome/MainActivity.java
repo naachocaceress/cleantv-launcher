@@ -94,7 +94,7 @@ import java.util.Set;
 /**
  * tvOS style home: black, a pinned dock row, an app grid, and one glass highlight that springs between tiles.
  */
-public class MainActivity extends Activity implements AppAdapter.TileListener, RecoAdapter.Listener {
+public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private static final int LAUNCHER_SETTINGS_REQUEST = 42;
     /** Sent by QuickSettingsActivity: open Launcher settings from here so Home rebuilds when they close. */
@@ -203,12 +203,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
     // Static so they survive the activity being destroyed while another app is open (low-memory TVs,
     // or Developer options → "Don't keep activities"); they only reset when the process dies.
     private static int lastFocused = 0;
-    /** Continue watching (CleanTV fork): the row between the header and the top shelf, see the section below. */
-    private RecoStore recoStore;
-    private RecoAdapter recoAdapter;
-    private RecyclerView recoRow;
-    private View recoBlock;
-    private int recoLast = 0;
     /** The Dock or Circles theme while it is the saved one (ClassicHome); null for Tiles, which is the rest of this class. */
     private ClassicHome classic;
     /** App of the last focused tile, so focus follows it when the app list changes. */
@@ -539,14 +533,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
         Order savedOrder = Order.load(Order.file(this));
         adapter.setSavedOrder(Order.ranks(savedOrder, dockApps), Order.docked(savedOrder, dockApps));
         grid.setAdapter(adapter);
-        recoStore = new RecoStore(this);
-        recoBlock = findViewById(R.id.recoBlock);
-        recoRow = findViewById(R.id.recoRow);
-        recoRow.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(this,
-                androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL, false));
-        recoRow.setItemAnimator(null);
-        recoAdapter = new RecoAdapter(recoStore, this);
-        recoRow.setAdapter(recoAdapter);
 
         // tvOS layout: push the dock row towards the bottom of the screen, leaving room for
         // rows_below_dock grid rows under it; the rest of the grid stays below until you press Down.
@@ -870,7 +856,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
         if (openLiveTvAfterBoot()) return;
         updateGreeting();
         updateRace();
-        refreshReco();
         // The network and Inputs pills keep their state while Home is in the background, and callbacks update them
         // when the network or the inputs change, so this refresh only catches anything missed. Its binder calls
         // (about 7 ms on a TCL C755, most of it WifiManager.getConnectionInfo) would hold up the first frame back
@@ -1517,7 +1502,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
     public void onTileFocused(int position, View card) {
         lastFocused = position;
         lastFocusedKey = adapter.keyAt(position);
-        updateRecoVisibility();
         // Focus restored before the first layout (cold start): the tile has no size yet, and the glass
         // would be sized to 2*pad. Run again once the tile is laid out.
         if (card.getWidth() == 0) {
@@ -2145,11 +2129,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
                     rtlAppGrid, keyCode == KeyEvent.KEYCODE_DPAD_LEFT);
         }
         if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
-            if (position < COLUMNS) {                      // dock row: Continue watching first, then the top bar
-                if (!recoShown()) return false;
-                focusReco();
-                return true;
-            }
+            if (position < COLUMNS) return false;          // dock row: let focus move to the top bar
             target = position - COLUMNS;
         } else {
             int lastRowStart = ((count - 1) / COLUMNS) * COLUMNS;
@@ -2273,91 +2253,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
         grid.smoothScrollToPosition(pos);
     }
 
-    // ---- Continue watching (CleanTV fork) -----------------------------------------------------------
-    // A row of cards (RecoStore: the apps' Watch Next entries plus the history of what played) between the header and
-    // the top shelf. It shows while the dock (the first row) is focused. Up from the dock reaches it, Up again reaches
-    // the top bar and Down returns to the dock. Launcher settings -> Continue watching switches it off.
-
-    static final String PREF_RECO = "continue_watching";
-
-    private boolean recoEnabled() {
-        return getSharedPreferences(Config.SETTINGS_NAME, MODE_PRIVATE).getBoolean(PREF_RECO, true);
-    }
-
-    /** Reads the list again (off the main thread) every time Home comes back. */
-    private void refreshReco() {
-        if (!recoEnabled()) {
-            recoAdapter.setItems(Collections.emptyList());
-            updateRecoVisibility();
-            return;
-        }
-        recoStore.load(items -> {
-            if (isDestroyed() || !recoEnabled()) return;
-            recoAdapter.setItems(items);
-            updateRecoVisibility();
-        });
-    }
-
-    private boolean recoShown() {
-        return recoBlock.getVisibility() == View.VISIBLE;
-    }
-
-    /** Gone when off or empty; invisible (so it cannot take focus) while focus is below the first row or tiles move. */
-    private void updateRecoVisibility() {
-        boolean any = recoEnabled() && recoAdapter.getItemCount() > 0;
-        boolean show = any && lastFocused < COLUMNS && !reordering;
-        recoBlock.setVisibility(show ? View.VISIBLE : any ? View.INVISIBLE : View.GONE);
-        View focused = getCurrentFocus();
-        if (!show && focused != null && focused.getId() == R.id.recoCard) focusTile(lastFocused);
-    }
-
-    private void focusReco() {
-        final int idx = Math.max(0, Math.min(recoLast, recoAdapter.getItemCount() - 1));
-        recoRow.scrollToPosition(idx);
-        recoRow.post(() -> {
-            RecyclerView.ViewHolder vh = recoRow.findViewHolderForAdapterPosition(idx);
-            if (vh != null) vh.itemView.findViewById(R.id.recoCard).requestFocus();
-        });
-        grid.playSoundEffect(SoundEffectConstants.NAVIGATION_UP);
-    }
-
-    @Override
-    public void onRecoFocused() {
-        hideGlass();
-        hideHero();
-    }
-
-    @Override
-    public void onRecoOpen(RecoStore.Item item) {
-        try {
-            startActivity(item.intent);
-        } catch (ActivityNotFoundException | SecurityException e) {   // the app was removed, or the entry points at something gone
-            Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    @Override
-    public boolean onRecoKey(int position, int keyCode) {
-        recoLast = position;
-        switch (keyCode) {
-            case KeyEvent.KEYCODE_DPAD_LEFT:
-                return position == 0;   // the ends do not fall through to the top bar
-            case KeyEvent.KEYCODE_DPAD_RIGHT:
-                return position == recoAdapter.getItemCount() - 1;
-            case KeyEvent.KEYCODE_DPAD_UP:
-                firstTopButton().requestFocus();
-                return true;
-            case KeyEvent.KEYCODE_DPAD_DOWN:
-                focusTile(lastFocused);
-                recoRow.playSoundEffect(SoundEffectConstants.NAVIGATION_DOWN);
-                return true;
-            default:
-                return false;
-        }
-    }
-
     // ---- settings sidebar (CleanTV fork) ------------------------------------------------------------
-    // The Settings button opens ConfigSidebar, a panel on the right edge (theme, wallpaper, Continue watching, Android
+    // The Settings button opens ConfigSidebar, a panel on the right edge (theme, wallpaper, more settings, Android
     // settings), as in the Dock and Circles themes. Holding OK on the button keeps upstream's own menu.
 
     private void showSidebar() {
@@ -2372,13 +2269,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
                 recreate();
             }
 
-            @Override public void onWallpaper() {
+            @Override public void onRebuild() {
                 recreate();
             }
 
-            @Override public void onReco() {
-                refreshReco();
-            }
 
             @Override public Runnable inputs() {
                 return btnInputs.getVisibility() == View.VISIBLE ? MainActivity.this::showInputs : null;
@@ -2393,9 +2287,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, R
 
     /** After a wallpaper change the rebuilt Home opens the sidebar again on the wallpaper screen, to keep browsing. */
     private void reopenSidebarIfAsked() {
-        if (!ConfigSidebar.reopenWallpaper) return;
-        ConfigSidebar.reopenWallpaper = false;
-        getWindow().getDecorView().post(() -> new ConfigSidebar(this, sidebarHost()).show(ConfigSidebar.SCREEN_WALLPAPER));
+        final String screen = ConfigSidebar.reopen;
+        if (screen == null) return;
+        ConfigSidebar.reopen = null;
+        getWindow().getDecorView().post(() -> new ConfigSidebar(this, sidebarHost()).show(screen));
     }
 
     // ---- top bar ---------------------------------------------------------------------------------

@@ -15,9 +15,7 @@ photo and its photographer. They are not MIT-licensed like the rest of the repo.
 
 ## Fonts
 
-[Outfit](https://fonts.google.com/specimen/Outfit) (upstream's launcher, `launcher/FONT-LICENSE-OFL.txt`) and
-[Open Sans](https://fonts.google.com/specimen/Open+Sans) (the Dock and Circles themes), both under the SIL Open Font
-License.
+[Outfit](https://fonts.google.com/specimen/Outfit), under the SIL Open Font License (`launcher/FONT-LICENSE-OFL.txt`).
 
 ## Logos
 

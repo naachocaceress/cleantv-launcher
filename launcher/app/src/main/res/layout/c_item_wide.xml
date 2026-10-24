@@ -51,7 +51,7 @@
             android:ellipsize="end"
             android:textColor="#FFFFFFFF"
             android:textSize="12sp"
-            android:fontFamily="@font/c_open_sans"
+            android:fontFamily="@string/font_regular"
             android:visibility="gone" />
     </FrameLayout>
 
@@ -67,6 +67,5 @@
         android:alpha="0"
         android:textColor="#F2FFFFFF"
         android:textSize="14sp"
-        android:fontFamily="@font/c_open_sans"
-        android:fontVariationSettings="'wght' 500" />
+        android:fontFamily="@string/font_medium" />
 </FrameLayout>

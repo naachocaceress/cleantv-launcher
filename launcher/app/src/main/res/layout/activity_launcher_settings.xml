@@ -112,12 +112,6 @@
             android:textColor="#FFACB8C1"
             android:textSize="14sp" />
 
-        <!-- CleanTV fork: the Continue watching row (see RecoStore). -->
-        <TextView
-            android:id="@+id/recoChoice"
-            style="@style/SettingsRow"
-            android:layout_marginTop="28dp" />
-
         <TextView
             android:id="@+id/followThemeChoice"
             style="@style/SettingsRow"

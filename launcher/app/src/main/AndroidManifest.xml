@@ -21,11 +21,8 @@
     <!-- YaOS (Yandex TV OS): HDMI, AV and the tuner all play in com.yandex.tv.live, whose activities require
          this permission (protection level normal, so it is granted at install). Ignored on other TVs. -->
     <uses-permission android:name="yandex.tv.permission.ACCESS_TV_SOURCE" />
-    <!-- CleanTV fork, Continue watching: the posters of Watch Next entries are fetched when shown (RecoStore), and the
-         entries themselves are read from the TV provider. Neither does anything until the access is given over adb
-         (READ_EPG_DATA with pm grant, the listener below with cmd notification allow_listener). -->
+    <!-- CleanTV fork: downloads the wallpaper you ask for (Settings, Wallpaper, New wallpaper from the web). -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA" />
 
     <!-- Android 11+ package visibility: lets the launcher list the TV apps it shows as tiles, and the
          apps that declare a module card (docs/specs/card.md). -->
@@ -207,18 +204,6 @@
             <meta-data
                 android:name="android.accessibilityservice"
                 android:resource="@xml/input_key_service" />
-        </service>
-
-        <!-- CleanTV fork, Continue watching: keeps the history of what played from the other apps' media sessions
-             (HistoryStore). It never reads a notification. Switched on over adb by the install scripts. -->
-        <service
-            android:name=".MediaHistoryService"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
-            </intent-filter>
         </service>
     </application>
 </manifest>

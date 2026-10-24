@@ -27,7 +27,6 @@ public final class LauncherSettingsActivity extends Activity {
     private TextView animationsChoice;
     private TextView advancedChoice;
     private TextView followThemeChoice;
-    private TextView recoChoice;
     private int columns;
     private int rowsBelowDock;
     private int dockOpacity;
@@ -125,12 +124,6 @@ public final class LauncherSettingsActivity extends Activity {
                         .setNegativeButton(android.R.string.cancel, null)
                         .show();
             }
-        });
-        recoChoice = findViewById(R.id.recoChoice);
-        recoChoice.setOnClickListener(v -> {
-            choices.edit().putBoolean(MainActivity.PREF_RECO, !choices.getBoolean(MainActivity.PREF_RECO, true)).apply();
-            changed();
-            refresh();
         });
         followThemeChoice = findViewById(R.id.followThemeChoice);
         followThemeChoice.setOnClickListener(v -> {
@@ -239,11 +232,6 @@ public final class LauncherSettingsActivity extends Activity {
                 getString(animations ? R.string.on : R.string.off)));
         advancedChoice.setText(getString(R.string.advanced_effects_state,
                 getString(advancedEffects ? R.string.on : R.string.off)));
-        boolean reco = choices.getBoolean(MainActivity.PREF_RECO, true);
-        boolean recoAccess = HistoryStore.listenerEnabled(this)
-                || checkSelfPermission(RecoStore.PERMISSION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-        recoChoice.setText(reco && !recoAccess ? getString(R.string.reco_state, getString(R.string.reco_needs_access))
-                : getString(R.string.reco_state, getString(reco ? R.string.on : R.string.off)));
         advancedChoice.setEnabled(animations);
         advancedChoice.setAlpha(animations ? 1f : 0.5f);
         String wallpaperCurrent = choices.getString(Config.WALLPAPER_CHOICE_KEY, null);

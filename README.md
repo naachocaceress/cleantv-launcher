@@ -24,11 +24,13 @@ temas, biblioteca de apps, tarjetas de módulos y teclas del control vienen de a
 - En esos dos temas se pueden **mover apps** (mantené OK en una app, o Menú): dentro del dock, de la grilla y entre ambos.
   En Mosaicos manda el menú de tarjeta y *Reordenar apps* de upstream.
 - El tema se cambia en el panel lateral: *Ajustes → Tema*. Cada uno recuerda sus apps fijas y su orden.
+- En Dock, *Ajustes → Tamaño de los íconos del dock* elige entre **pequeño** (el de siempre, hasta 8 apps), **mediano** (hasta 7) y
+  **grande** (hasta 6): cuanto más grandes los íconos, menos caben a lo ancho. Todo el launcher usa la tipografía de Mosaicos (Outfit).
 
 ### Panel de ajustes lateral
 
 El botón **Ajustes** abre un panel sobre el borde derecho, con el inicio atenuado detrás, en los tres temas: *Tema*,
-*Fondo de pantalla*, *Recomendaciones* (la fila de abajo), *Más ajustes del launcher* (Mosaicos) y *Ajustes de Android*, más
+*Fondo de pantalla*, *Tamaño de los íconos del dock* (solo en Dock), *Más ajustes del launcher* (Mosaicos) y *Ajustes de Android*, más
 *Entradas* si el TV las tiene. Mantener OK en el botón sigue abriendo el menú de upstream (módulos, ajustes del TV...). Los
 ajustes largos de upstream (apps por fila, filas bajo el dock, animaciones, fondo) también se ven como panel lateral y no
 a pantalla completa.
@@ -39,33 +41,10 @@ a pantalla completa.
 Wikimedia Commons (CC0, dominio público, CC BY, CC BY-SA), la recorta a 1920×1080 y la guarda con su autor y licencia. Se
 suma a la carpeta de fondos del tema (`wallpapers/`) con el prefijo `web-`, así que **upstream la rota o la fija igual que a
 las del tema**, en cualquier tema del launcher. El panel también deja pasar al fondo siguiente o anterior, quitar el que se
-bajó y volver al del tema. La lista no trae fotos: se descargan solo cuando las pedís (única razón, con los carteles de
-*Continuar viendo*, de que el launcher tenga permiso de internet). Se regenera con
+bajó y volver al del tema. La lista no trae fotos: se descargan solo cuando las pedís (es la única razón de que el
+launcher tenga permiso de internet). Se regenera con
 [`tools/make_wallpaper_catalog.py`](tools/make_wallpaper_catalog.py), o sumás la tuya con `c_wallpaper_catalog_url` en
 [`classic_config.xml`](launcher/app/src/main/res/values/classic_config.xml).
-
-### Continuar viendo
-
-Entre el encabezado y las apps aparece una fila de tarjetas con lo último que viste, como en Google TV. Cada tarjeta lleva la
-app, el título, el cartel y cuánto avanzaste. Viene de dos lugares, mezclados del más reciente al más viejo:
-
-- **Lo que las apps publican en *Watch Next* de Android TV** (series y películas que seguís viendo, próximos episodios).
-  Netflix, YouTube o Disney+ lo hacen en un TV con Google TV, pero **en un TV box sin servicios de Google casi ninguna app
-  publica nada**, así que esta fuente suele estar vacía.
-- **El historial propio del launcher**, que cubre ese caso: un servicio mínimo mira las sesiones de reproducción de las otras
-  apps (la misma información que muestra la notificación de "reproduciendo") y guarda título, canal o serie, cartel y
-  posición. Sirve con cualquier app que informe lo que reproduce (YouTube, Stremio...). Las que no informan el título
-  (Netflix, Prime Video) aparecen igual como "usaste esta app", con su banner. OK abre la app, o el contenido si la app
-  publicó un enlace a él. Todo se guarda en el almacenamiento privado del launcher; no sale del TV y no se lee ninguna
-  notificación.
-
-La fila se ve mientras el dock (la primera fila) tiene el foco: ↑ llega a ella, ↑ otra vez llega a los botones de arriba y ↓
-vuelve. Se apaga en el panel (*Recomendaciones*); sin nada para mostrar, no aparece. El acceso se da una sola vez por ADB, y
-los scripts de instalación ya lo hacen. A mano:
-
-```bash
-adb shell cmd notification allow_listener com.gathin.tvhome/com.gathin.tvhome.MediaHistoryService
-```
 
 ### Actualizar sin perder los ajustes
 
@@ -73,12 +52,12 @@ Android no deja instalar una versión firmada con otra clave encima de la instal
 ajustes del launcher. Para que no pase, **todas las compilaciones se firman con la misma clave**, que está en el repositorio
 (`launcher/signing/cleantv.keystore`, la clave debug de siempre con su clave `android`). No protege nada y no hace falta que
 lo haga: es un launcher que se instala a mano, no una app de tienda. Con esa clave, `adb install -r` (o los scripts)
-actualizan encima y se conservan ajustes, orden, tema e historial. Un TV que ya tiene una versión firmada con otra clave
+actualizan encima y se conservan ajustes, orden y tema. Un TV que ya tiene una versión firmada con otra clave
 necesita una desinstalación, una sola vez.
 
 ### Instalar en Windows con `adb.exe`
 
-[`launcher/install.ps1`](launcher/install.ps1) compila, instala en uno o varios TV, lo deja como inicio y activa el historial.
+[`launcher/install.ps1`](launcher/install.ps1) compila, instala en uno o varios TV, y lo deja como inicio.
 No necesita Python (los scripts de upstream sí) y no toca el launcher de fábrica:
 
 ```powershell
@@ -139,12 +118,12 @@ git fetch upstream && git merge upstream/main
 ```
 
 Los puntos donde este fork toca archivos de upstream son pocos, para que el merge duela poco:
-`MainActivity.java` (la sección *Continue watching*, la del panel lateral, y una línea al comienzo de cada método del ciclo de
-vida que cede el control a `ClassicHome` cuando el tema es Dock o Círculos), `activity_main.xml` (el bloque `recoBlock`),
-`LauncherSettingsActivity.java` y su layout (una fila y el aspecto de panel), `AndroidManifest.xml` (permisos, servicio y el
+`MainActivity.java` (la sección del panel lateral y una línea al comienzo de cada método del ciclo de
+vida que cede el control a `ClassicHome` cuando el tema es Dock o Círculos), `activity_main.xml`,
+`LauncherSettingsActivity.java` y su layout (el aspecto de panel), `AndroidManifest.xml` (permiso de internet y el
 tema del panel), `values/styles.xml` y `config.xml` (dock, apps ocultas, menú de tarjeta), `app/build.gradle` (la firma) y los
 scripts de instalación (dos líneas). Todo lo demás son archivos nuevos: `ClassicHome`, `ClassicAdapter` y compañía,
-`ConfigSidebar`, `WallpaperStore`, `RecoStore`, `RecoAdapter`, `HistoryStore`, `MediaHistoryService`, los recursos `c_…` y
+`ConfigSidebar`, `WallpaperStore`, los recursos `c_…` y
 `classic_*.xml`, `install.ps1`, `themes/manhattan/`.
 
 Upstream también trae `.github/` (su CI, con un límite de 480 KB para el APK, y un bot de mantenimiento programado),

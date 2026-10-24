@@ -38,12 +38,6 @@
     <string name="c_theme_circles">Círculos</string>
     <string name="c_theme_tiles">Mosaicos</string>
 
-    <string name="c_reco_title">Continuar viendo</string>
-    <string name="c_menu_reco">Recomendaciones</string>
-    <string name="c_reco_on">Activadas</string>
-    <string name="c_reco_off">Desactivadas</string>
-    <string name="c_reco_needs_permission">Falta activarlo por ADB</string>
-    <string name="c_reco_permission_denied">Falta el acceso para leer lo que reproduces. Se da una vez por ADB (ver README).</string>
 
     <string name="c_wallpaper_new">Nuevo fondo de la web</string>
     <string name="c_wallpaper_next">Fondo siguiente</string>
@@ -55,4 +49,8 @@
     <string name="c_wallpaper_failed">No se pudo descargar un fondo. Revisa la conexión a internet.</string>
     <string name="c_wallpaper_have_all">Ya descargaste todos los fondos del catálogo.</string>
     <string name="c_menu_more">Más ajustes del launcher</string>
+    <string name="c_menu_dock_size">Tamaño de los íconos del dock</string>
+    <string name="c_size_small">Pequeño</string>
+    <string name="c_size_medium">Mediano</string>
+    <string name="c_size_large">Grande</string>
 </resources>

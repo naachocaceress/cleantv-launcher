@@ -464,7 +464,8 @@ public class ClassicAdapter extends RecyclerView.Adapter<ClassicAdapter.Holder> 
                 break;
             }
             default: {   // TYPE_ICON, the small dock icons of the DOCK theme
-                int size = (int) (56 * d);
+                int size = (int) (ClassicHome.DOCK_ICON_DP * d);
+                float sizeScale = ClassicHome.DOCK_ICON_DP / 56f;
                 lp.width = size;
                 lp.height = size;
                 h.card.setLayoutParams(lp);
@@ -474,13 +475,19 @@ public class ClassicAdapter extends RecyclerView.Adapter<ClassicAdapter.Holder> 
                 h.icon.setImageDrawable(e.glyph != null ? e.glyph : e.icon);
                 h.icon.setVisibility(View.VISIBLE);
                 h.shadow.setVisibility(View.VISIBLE);
+                // The shadow's canvas (120dp around a 56dp icon, 26dp above its top) grows with the icon.
+                FrameLayout.LayoutParams slp = (FrameLayout.LayoutParams) h.shadow.getLayoutParams();
+                slp.width = (int) (120 * d * sizeScale);
+                slp.height = (int) (120 * d * sizeScale);
+                slp.topMargin = (int) (-26 * d * sizeScale);
+                h.shadow.setLayoutParams(slp);
                 h.shadow.setScaleX(1f);
                 h.shadow.setScaleY(1f);
                 h.shadow.setTranslationY(0f);
                 h.name.setVisibility(View.INVISIBLE);   // the dock uses a tooltip instead
                 FrameLayout.LayoutParams nlp = (FrameLayout.LayoutParams) h.name.getLayoutParams();
                 nlp.width = (int) (100 * d);
-                nlp.topMargin = (int) (63 * d);
+                nlp.topMargin = (int) ((ClassicHome.DOCK_ICON_DP + 7) * d);
                 h.name.setLayoutParams(nlp);
                 break;
             }

@@ -145,8 +145,4 @@
     <!-- Cinematic top shelf (cinematic_home): the line under the focused dock app's name; %1$s is when it was
          last opened, e.g. "5 minutes ago" or "yesterday, 9:40 pm". -->
     <string name="last_opened">Last opened %1$s</string>
-    <!-- CleanTV fork: Continue watching row -->
-    <string name="reco_title">Continue watching</string>
-    <string name="reco_state">Continue watching: %1$s</string>
-    <string name="reco_needs_access">On, but needs a one-time ADB step (see the README)</string>
 </resources>

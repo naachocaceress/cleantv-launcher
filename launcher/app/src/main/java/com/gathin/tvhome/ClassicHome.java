@@ -63,7 +63,7 @@ import java.util.List;
  * its animations; the grid has none: the highlight sits on the focused tile and focus changes and scrolling show at
  * once.
  */
-final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileListener, RecoAdapter.Listener,
+final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileListener,
         ConfigSidebar.Host {
 
     /**
@@ -104,6 +104,11 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
     static int DOCK_MAX = 8;
     /** Dock cells across the screen; the dock sits centred in them (res/values/config.xml, dock_slots). */
     static int DOCK_SLOTS = 9;
+    /** Dock icon size in dp (Settings, Dock icon size): small 56, medium 68, large 80. Set in onCreate. */
+    static int DOCK_ICON_DP = 56;
+    /** The dock sizes: icon dp, and how many apps fit across the dock area at that size (cells of about 1.5 icons). */
+    static final int[] DOCK_ICON_SIZES = {56, 68, 80};
+    static final int[] DOCK_SIZE_MAX = {0, 7, 6};   // 0: small keeps the config.xml numbers (c_dock_max, c_dock_slots)
     private static final long MINUTE_MS = 60_000L;
     private static final int TILES_COLUMNS = ClassicAdapter.TILES_COLUMNS;   // only reachable through the old Tiles layout
     private String liveTvPkg;
@@ -133,11 +138,6 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
     private float glassTargetX, glassTargetY;
     private boolean glassShown;
     private int lastFocused = 0;
-    private RecoStore recoStore;
-    private RecoAdapter recoAdapter;
-    private RecyclerView recoRow;
-    private View recoBlock;
-    private int recoLast = 0;
     /** Background: upstream's wallpaper engine (the theme's pictures, time of day, rotation and the downloaded ones). */
     private WallpaperPlayer wallpaperPlayer;
     private float density;
@@ -170,6 +170,12 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         COLUMNS = Math.max(1, getResources().getInteger(R.integer.c_columns));
         DOCK_MAX = Math.min(12, Math.max(COLUMNS, getResources().getInteger(R.integer.c_dock_max)));
         DOCK_SLOTS = Math.min(30, Math.max(DOCK_MAX, getResources().getInteger(R.integer.c_dock_slots)));
+        int sizeIndex = ConfigSidebar.dockSize(this);
+        DOCK_ICON_DP = DOCK_ICON_SIZES[sizeIndex];
+        if (sizeIndex > 0) {   // bigger icons need wider cells: fewer fit across the same dock area
+            DOCK_MAX = DOCK_SIZE_MAX[sizeIndex];
+            DOCK_SLOTS = DOCK_SIZE_MAX[sizeIndex];
+        }
         liveTvPkg = getString(R.string.live_tv_package).trim();
 
         root = findViewById(R.id.root);
@@ -203,13 +209,6 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         configureGrid();
         applyChrome();
 
-        recoStore = new RecoStore(this);
-        recoBlock = findViewById(R.id.recoBlock);
-        recoRow = findViewById(R.id.recoRow);
-        recoRow.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
-        recoRow.setItemAnimator(null);
-        recoAdapter = new RecoAdapter(recoStore, this);
-        recoRow.setAdapter(recoAdapter);
 
         // Keep the grid's padding right for the theme (in DOCK it also pushes the dock row to the bottom).
         grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> applyGridPadding());
@@ -225,10 +224,6 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         View.OnKeyListener pillKeys = (v, keyCode, event) -> {
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
-            if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && recoShown()) {   // the recommendations sit between the header and the apps
-                focusReco();
-                return true;
-            }
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v.getId() == R.id.btnWifi) return true;
             return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == R.id.btnSettings;
         };
@@ -254,7 +249,6 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         dockDot.setAlpha(0f);
         ambient.setAlpha(0f);
         adapter.reload();
-        refreshReco();
         updateGreeting();
         updateWifiLabel();
         handler.postDelayed(minuteTick, MINUTE_MS);
@@ -352,7 +346,7 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         int bottom = (int) ((theme == ClassicTheme.DOCK ? 40 : theme == ClassicTheme.TILES ? 24 : 36) * density);
         int top;
         if (theme == ClassicTheme.DOCK) {
-            top = Math.max(0, grid.getHeight() - (int) ((101 + 6 + 12) * density) + (int) (8 * density));
+            top = Math.max(0, grid.getHeight() - (int) ((101 + 6 + 12 + (DOCK_ICON_DP - 56)) * density) + (int) (8 * density));
         } else if (theme == ClassicTheme.CIRCLES) {
             top = 0;   // the grid itself is only as tall as the row and sits at the bottom (see below)
         } else {
@@ -376,7 +370,6 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
     @Override
     public void onTileFocused(int position, View card) {
         lastFocused = position;
-        updateRecoVisibility();
         if (adapter.isDocked(position)) {
             onDockFocused(position, card);
             return;
@@ -502,11 +495,6 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
 
     @Override
     public boolean onTileVerticalKey(int position, int keyCode) {
-        if (keyCode == KeyEvent.KEYCODE_DPAD_UP && recoShown() && isFirstRow(position)) {
-            focusReco();   // Up from the first row goes to the recommendations, and from there to the header
-            grid.playSoundEffect(android.view.SoundEffectConstants.NAVIGATION_UP);
-            return true;
-        }
         if (theme == ClassicTheme.CIRCLES) return keyCode == KeyEvent.KEYCODE_DPAD_DOWN;   // one row: Down stays, Up reaches the header
         if (theme != ClassicTheme.DOCK) return false;   // TILES is a plain grid: Android's focus search does it
         int count = adapter.getItemCount();
@@ -683,13 +671,8 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
     }
 
     @Override
-    public void onWallpaper() {
+    public void onRebuild() {
         host.recreate();   // read the wallpaper collection and the choice again
-    }
-
-    @Override
-    public void onReco() {
-        refreshReco();
     }
 
     @Override
@@ -742,101 +725,6 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
             }
         });
         grid.scrollToPosition(pos);
-    }
-
-    // ---- recommendations -------------------------------------------------------------------------
-    // A row of "Continue watching" cards between the header and the apps (see RecoStore). Up from the first row of apps
-    // reaches it, Up from it reaches the header and Down returns to the app we came from. It can be switched off in
-    // Settings, and it hides itself when there is nothing to show or the app list has scrolled down.
-
-    private boolean recoEnabled() {
-        return getSharedPreferences(Config.SETTINGS_NAME, MODE_PRIVATE).getBoolean(MainActivity.PREF_RECO, true);
-    }
-
-    /** Reads the list again (off the main thread) every time the home screen comes back. */
-    private void refreshReco() {
-        if (!recoEnabled()) {
-            recoAdapter.setItems(Collections.emptyList());
-            updateRecoVisibility();
-            return;
-        }
-        recoStore.load(items -> {
-            if (isDestroyed() || !recoEnabled()) return;
-            recoAdapter.setItems(items);
-            updateRecoVisibility();
-        });
-    }
-
-    private boolean recoShown() {
-        return recoBlock.getVisibility() == View.VISIBLE;
-    }
-
-    /** Gone when off or empty; hidden (so it cannot take focus) while the focus is below the first rows of apps. */
-    private void updateRecoVisibility() {
-        boolean any = recoEnabled() && recoAdapter.getItemCount() > 0;
-        boolean show = any && isRecoRow(lastFocused);
-        recoBlock.setVisibility(show ? View.VISIBLE : any ? View.INVISIBLE : View.GONE);
-        View focused = getCurrentFocus();
-        if (!show && focused != null && focused.getId() == R.id.recoCard) focusTile(lastFocused);
-    }
-
-    /** The rows of apps shown together with the recommendations (the lower ones scroll through their space). */
-    private boolean isRecoRow(int position) {
-        if (theme == ClassicTheme.CIRCLES) return true;
-        if (theme == ClassicTheme.TILES) return position < 2 * TILES_COLUMNS;   // the plate and the row peeking in below it
-        return isFirstRow(position);
-    }
-
-    /** The row Up leaves from to reach the recommendations: the dock, the plate or the single row of circles. */
-    private boolean isFirstRow(int position) {
-        if (theme == ClassicTheme.CIRCLES) return true;
-        if (theme == ClassicTheme.TILES) return position < TILES_COLUMNS;
-        int dock = adapter.dockCount();
-        return position < (dock > 0 ? dock : COLUMNS);
-    }
-
-    private void focusReco() {
-        final int idx = Math.max(0, Math.min(recoLast, recoAdapter.getItemCount() - 1));
-        recoRow.scrollToPosition(idx);
-        recoRow.post(() -> {
-            RecyclerView.ViewHolder vh = recoRow.findViewHolderForAdapterPosition(idx);
-            if (vh != null) vh.itemView.findViewById(R.id.recoCard).requestFocus();
-        });
-    }
-
-    @Override
-    public void onRecoFocused() {
-        hideGlass();
-        hideHero();
-    }
-
-    @Override
-    public void onRecoOpen(RecoStore.Item item) {
-        try {
-            startActivity(item.intent);
-        } catch (Exception e) {   // the app was removed, or the entry points at something it no longer has
-            Toast.makeText(this, getString(R.string.c_cant_open, item.title), Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    @Override
-    public boolean onRecoKey(int position, int keyCode) {
-        recoLast = position;
-        switch (keyCode) {
-            case KeyEvent.KEYCODE_DPAD_LEFT:
-                return position == 0;   // the ends do not fall through to the header buttons
-            case KeyEvent.KEYCODE_DPAD_RIGHT:
-                return position == recoAdapter.getItemCount() - 1;
-            case KeyEvent.KEYCODE_DPAD_UP:
-                btnWifi.requestFocus();
-                return true;
-            case KeyEvent.KEYCODE_DPAD_DOWN:
-                focusTile(lastFocused);
-                recoRow.playSoundEffect(android.view.SoundEffectConstants.NAVIGATION_DOWN);
-                return true;
-            default:
-                return false;
-        }
     }
 
     // ---- top bar ---------------------------------------------------------------------------------

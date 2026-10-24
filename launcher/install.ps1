@@ -57,7 +57,5 @@ foreach ($h in $Hosts) {
         continue
     }
     & $adb -s $serial shell cmd package set-home-activity --user 0 com.gathin.tvhome/.MainActivity | Out-Host
-    & $adb -s $serial shell cmd notification allow_listener com.gathin.tvhome/com.gathin.tvhome.MediaHistoryService | Out-Host
-    & $adb -s $serial shell pm grant com.gathin.tvhome com.android.providers.tv.permission.READ_EPG_DATA 2>$null | Out-Null
     & $adb -s $serial shell input keyevent KEYCODE_HOME
 }

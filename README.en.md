@@ -23,11 +23,13 @@ themes, the app library, module cards and the remote-key helpers all come from t
 - Those two themes can **move apps** (hold OK on an app, or Menu): inside the dock, the grid and between them. Tiles uses
   upstream's card menu and *Reorder apps*.
 - The theme is changed in the sidebar: *Settings → Theme*. Each theme keeps its own pinned apps and order.
+- In Dock, *Settings → Dock icon size* picks **small** (the original, up to 8 apps), **medium** (up to 7) or **large** (up to 6):
+  the bigger the icons, the fewer fit across. The whole launcher uses the Tiles typeface (Outfit).
 
 ### Settings sidebar
 
 The **Settings** button opens a panel on the right edge with Home dimmed behind it, in all three themes: *Theme*,
-*Wallpaper*, *Recommendations* (the row below), *More launcher settings* (Tiles) and *Android settings*, plus *Inputs* when the
+*Wallpaper*, *Dock icon size* (Dock only), *More launcher settings* (Tiles) and *Android settings*, plus *Inputs* when the
 TV has them. Holding OK on the button still opens upstream's menu (modules, TV settings...). Upstream's long settings page
 (apps per row, rows below the dock, animations, wallpaper) is also a side panel instead of a full screen.
 
@@ -37,44 +39,23 @@ TV has them. Holding OK on the button still opens upstream's menu (modules, TV s
 Commons (CC0, public domain, CC BY, CC BY-SA), crops it to 1920×1080 and keeps it with its author and licence. It joins the
 theme's `wallpapers/` folder with a `web-` prefix, so **upstream rotates or pins it exactly like the theme's own pictures**, in
 any theme of the launcher. The panel also steps to the next or previous wallpaper, removes the downloaded one and goes back to
-the theme's. The list holds only links: a picture is fetched when you ask (the one reason, with the posters of *Continue
-watching*, that the launcher has the internet permission). Rebuild the list with
+the theme's. The list holds only links: a picture is fetched when you ask (the one reason the launcher has the internet
+permission). Rebuild the list with
 [`tools/make_wallpaper_catalog.py`](tools/make_wallpaper_catalog.py), or add your own with `c_wallpaper_catalog_url` in
 [`classic_config.xml`](launcher/app/src/main/res/values/classic_config.xml).
-
-### Continue watching
-
-A row of cards between the header and the apps with what you watched last, as on Google TV: the app, the title, the poster
-and how far you got. It merges two sources, newest first:
-
-- **What apps publish to Android TV's *Watch Next* list.** Netflix, YouTube or Disney+ do on a Google TV, but on a box
-  without Google services almost no app publishes anything, so this source is usually empty.
-- **The launcher's own history**, which covers that case: a minimal service watches the other apps' media sessions (the
-  same data the "now playing" notification uses) and keeps the title, channel or show, poster and position. It works with
-  any app that reports what it plays (YouTube, Stremio...). Apps that report no title (Netflix, Prime Video) still show up
-  as "you used this app" with their banner. OK opens the app, or the content itself when the app published a link to it.
-  Everything stays in the launcher's private storage; no notification is read.
-
-The row shows while the dock (the first row) is focused: Up reaches it, Up again reaches the top buttons and Down goes back.
-Switch it off in the sidebar (*Recommendations*); with nothing to show it stays hidden. The access is given once over adb, and
-the install scripts do it. By hand:
-
-```bash
-adb shell cmd notification allow_listener com.gathin.tvhome/com.gathin.tvhome.MediaHistoryService
-```
 
 ### Updating without losing settings
 
 Android refuses to install a build signed with a different key over the installed one, and uninstalling wipes the
 launcher's settings. So **every build is signed with the same key**, committed in `launcher/signing/cleantv.keystore` (the
 stock debug key, password `android`). It protects nothing and does not need to: this is a sideloaded home screen, not a store
-app. With it, `adb install -r` (or the scripts) updates in place and keeps settings, order, theme and history. A TV that
+app. With it, `adb install -r` (or the scripts) updates in place and keeps settings, order and theme. A TV that
 already runs a build signed with another key needs one uninstall, once.
 
 ### Install from Windows with `adb.exe`
 
-[`launcher/install.ps1`](launcher/install.ps1) builds, installs on one or more TVs, sets the home app and turns the history
-on. It needs no Python (upstream's scripts do) and leaves the stock launcher alone:
+[`launcher/install.ps1`](launcher/install.ps1) builds, installs on one or more TVs, sets the home app.
+It needs no Python (upstream's scripts do) and leaves the stock launcher alone:
 
 ```powershell
 launcher\install.ps1 192.168.0.222 192.168.0.221
@@ -130,13 +111,13 @@ git remote add upstream https://github.com/Gathin23/cleanyourtv.git   # once
 git fetch upstream && git merge upstream/main
 ```
 
-This fork touches few upstream files, to keep merges cheap: `MainActivity.java` (the *Continue watching* and sidebar
+This fork touches few upstream files, to keep merges cheap: `MainActivity.java` (the sidebar
 sections, plus one line at the start of each life-cycle method that hands over to `ClassicHome` when the theme is Dock or
-Circles), `activity_main.xml` (the `recoBlock`), `LauncherSettingsActivity.java` and its layout (one row and the panel look),
-`AndroidManifest.xml` (permissions, the service and the panel theme), `values/styles.xml` and `config.xml` (dock, hidden apps,
+Circles), `LauncherSettingsActivity.java` and its layout (the panel look),
+`AndroidManifest.xml` (the internet permission and the panel theme), `values/styles.xml` and `config.xml` (dock, hidden apps,
 card menu), `app/build.gradle` (signing) and the install scripts (two lines). Everything else is a new file: `ClassicHome`,
-`ClassicAdapter` and friends, `ConfigSidebar`, `WallpaperStore`, `RecoStore`, `RecoAdapter`, `HistoryStore`,
-`MediaHistoryService`, the `c_…` resources and `classic_*.xml`, `install.ps1`, `themes/manhattan/`.
+`ClassicAdapter` and friends, `ConfigSidebar`, `WallpaperStore`,
+the `c_…` resources and `classic_*.xml`, `install.ps1`, `themes/manhattan/`.
 
 Upstream also ships `.github/` (its CI, with a 480 KB APK cap, and a scheduled maintenance bot), `CLAUDE.md`, `AGENTS.md` and
 `GEMINI.md` (its maintainers' rules for agents). This fork does not use them: after each merge,

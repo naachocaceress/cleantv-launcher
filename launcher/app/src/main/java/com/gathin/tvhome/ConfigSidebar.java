@@ -6,7 +6,6 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
 import android.provider.Settings;
@@ -27,7 +26,7 @@ import java.util.List;
 
 /**
  * The settings sidebar: a panel on the right edge with a few big buttons. Theme and Wallpaper open their own screen
- * inside the panel (Back returns to the buttons), Continue watching is a switch, and Android settings opens the system
+ * inside the panel (Back returns to the buttons), and Android settings opens the system
  * settings directly. Shared by the Dock and Circles themes ({@link ClassicHome}) and the Tiles home
  * ({@link MainActivity}); each one tells it what to do through {@link Host}.
  */
@@ -37,19 +36,18 @@ final class ConfigSidebar {
     /** The file the Dock and Circles themes always saved into; the theme choice lives here. */
     static final String PREFS = "tvhome";
     private static final String PREF_THEME = "theme";
-    static final String SCREEN_MENU = "menu", SCREEN_WALLPAPER = "wallpaper";
-    /** Set by a wallpaper change so the rebuilt Home opens the panel again on the wallpaper screen. */
-    static boolean reopenWallpaper;
+    private static final String PREF_DOCK_SIZE = "dock_size";
+    static final String SCREEN_MENU = "menu", SCREEN_WALLPAPER = "wallpaper", SCREEN_DOCK_SIZE = "dock_size";
+    /** Set by a change that rebuilds Home so the rebuilt Home opens the panel again on that screen (null: do not). */
+    static String reopen;
 
     interface Host {
         /** The theme was picked: save it and rebuild Home. */
         void onTheme(String key);
 
-        /** A wallpaper was picked, added or removed: rebuild Home so it reads the collection again. */
-        void onWallpaper();
+        /** A wallpaper or the dock size changed: rebuild Home so it reads the settings again. */
+        void onRebuild();
 
-        /** The Continue watching switch changed. */
-        void onReco();
 
         /** The Inputs dropdown, or null when this home has none. */
         Runnable inputs();
@@ -82,13 +80,15 @@ final class ConfigSidebar {
         return THEME_DOCK.equals(key) || THEME_CIRCLES.equals(key) ? key : THEME_TILES;
     }
 
+    /** The dock icon size of the Dock theme: 0 small (the original), 1 medium, 2 large. */
+    static int dockSize(Context ctx) {
+        return Math.max(0, Math.min(2, ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(PREF_DOCK_SIZE, 0)));
+    }
+
     static void saveTheme(Context ctx, String key) {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(PREF_THEME, key).apply();
     }
 
-    private boolean recoEnabled() {
-        return choices.getBoolean(MainActivity.PREF_RECO, true);
-    }
 
     private void bumpRevision() {
         choices.edit().putLong(Config.SETTINGS_REVISION_KEY, choices.getLong(Config.SETTINGS_REVISION_KEY, 0) + 1).apply();
@@ -116,6 +116,23 @@ final class ConfigSidebar {
                     () -> host.onTheme(THEME_TILES));
             int selected = THEME_DOCK.equals(current) ? 1 : THEME_CIRCLES.equals(current) ? 2 : 3;
             rows.getChildAt(selected).requestFocus();
+        };
+        final Runnable dockSizeScreen = () -> {
+            inMenu[0] = false;
+            title.setText(R.string.c_menu_dock_size);
+            rows.removeAllViews();
+            addRow(rows, dialog, R.drawable.c_ic_left, act.getString(R.string.c_back), false, false, () -> menu[0].run());
+            int now = dockSize(ctx);
+            int[] labels = {R.string.c_size_small, R.string.c_size_medium, R.string.c_size_large};
+            for (int i = 0; i < labels.length; i++) {
+                final int size = i;
+                addRow(rows, dialog, 0, act.getString(labels[i]), now == i, true, () -> {
+                    ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(PREF_DOCK_SIZE, size).apply();
+                    reopen = SCREEN_DOCK_SIZE;
+                    host.onRebuild();
+                });
+            }
+            rows.getChildAt(1 + now).requestFocus();
         };
         final Runnable[] wallpaperScreen = new Runnable[1];
         wallpaperScreen[0] = () -> {
@@ -149,20 +166,10 @@ final class ConfigSidebar {
             addRow(rows, dialog, R.drawable.c_ic_theme, act.getString(R.string.c_menu_theme), false, false, themeScreen);
             addRow(rows, dialog, R.drawable.c_ic_wallpaper, act.getString(R.string.c_menu_wallpaper), false, false,
                     wallpaperScreen[0]);
-            View recoRowView = addRow(rows, dialog, R.drawable.c_ic_theme, act.getString(R.string.c_menu_reco), false,
-                    false, () -> {
-                        choices.edit().putBoolean(MainActivity.PREF_RECO, !recoEnabled()).apply();
-                        bumpRevision();
-                        host.onReco();
-                        menu[0].run();
-                        rows.getChildAt(2).requestFocus();   // stay on the switch
-                    });
-            TextView recoStatus = recoRowView.findViewById(R.id.status);
-            recoStatus.setVisibility(View.VISIBLE);
-            boolean access = HistoryStore.listenerEnabled(ctx)
-                    || act.checkSelfPermission(RecoStore.PERMISSION) == PackageManager.PERMISSION_GRANTED;
-            recoStatus.setText(!recoEnabled() ? R.string.c_reco_off
-                    : access ? R.string.c_reco_on : R.string.c_reco_needs_permission);
+            if (THEME_DOCK.equals(current)) {   // the size of the dock icons only exists in the Dock theme
+                addRow(rows, dialog, R.drawable.c_ic_theme, act.getString(R.string.c_menu_dock_size), false, false,
+                        dockSizeScreen);
+            }
             Runnable more = host.moreSettings();
             if (more != null) {
                 addRow(rows, dialog, R.drawable.c_ic_settings, act.getString(R.string.c_menu_more), false, true, more);
@@ -176,6 +183,7 @@ final class ConfigSidebar {
             rows.getChildAt(0).requestFocus();
         };
         if (SCREEN_WALLPAPER.equals(firstScreen)) wallpaperScreen[0].run();
+        else if (SCREEN_DOCK_SIZE.equals(firstScreen) && THEME_DOCK.equals(current)) dockSizeScreen.run();
         else menu[0].run();
 
         // Back goes from a screen to the buttons, and from the buttons it closes the panel.
@@ -193,7 +201,7 @@ final class ConfigSidebar {
             w.setDimAmount(0.45f);
         }
         dialog.show();
-        rows.getChildAt(Math.min(rows.getChildCount() - 1, SCREEN_WALLPAPER.equals(firstScreen) ? 1 : 0)).requestFocus();
+        rows.getChildAt(Math.min(rows.getChildCount() - 1, SCREEN_MENU.equals(firstScreen) ? 0 : 1)).requestFocus();
     }
 
     private boolean hasInputs() {
@@ -251,8 +259,8 @@ final class ConfigSidebar {
         wallpapers.fetchNew((file, message) -> {
             if (file != null) {
                 setChoice(file.getName());
-                reopenWallpaper = true;
-                host.onWallpaper();
+                reopen = SCREEN_WALLPAPER;
+                host.onRebuild();
             }
             Toast.makeText(act, message, Toast.LENGTH_LONG).show();
         });
@@ -272,21 +280,21 @@ final class ConfigSidebar {
         } else if (wallpapers.isDownloaded(order.get(next))) {
             Toast.makeText(act, wallpapers.credit(new File(wallpapers.dir(), order.get(next))), Toast.LENGTH_LONG).show();
         }
-        reopenWallpaper = true;
-        host.onWallpaper();
+        reopen = SCREEN_WALLPAPER;
+        host.onRebuild();
     }
 
     private void removeWallpaper() {
         String chosen = choices.getString(Config.WALLPAPER_CHOICE_KEY, null);
         if (chosen != null) wallpapers.delete(new File(wallpapers.dir(), chosen));
         setChoice(null);
-        reopenWallpaper = true;
-        host.onWallpaper();
+        reopen = SCREEN_WALLPAPER;
+        host.onRebuild();
     }
 
     private void useThemeWallpaper() {
         setChoice(null);
-        reopenWallpaper = true;
-        host.onWallpaper();
+        reopen = SCREEN_WALLPAPER;
+        host.onRebuild();
     }
 }

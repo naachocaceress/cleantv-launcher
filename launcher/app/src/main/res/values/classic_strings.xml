@@ -34,12 +34,6 @@
     <string name="c_theme_circles">Circles</string>
     <string name="c_theme_tiles">Tiles</string>
 
-    <string name="c_reco_title">Continue watching</string>
-    <string name="c_menu_reco">Recommendations</string>
-    <string name="c_reco_on">On</string>
-    <string name="c_reco_off">Off</string>
-    <string name="c_reco_needs_permission">Needs a one-time ADB step</string>
-    <string name="c_reco_permission_denied">No access to read what you play. Grant it once over ADB (see the README).</string>
 
     <string name="c_wallpaper_new">New wallpaper from the web</string>
     <string name="c_wallpaper_next">Next wallpaper</string>
@@ -55,4 +49,8 @@
     <string name="c_wifi">Wi-Fi</string>
     <string name="c_theme_dock">Dock</string>
     <string name="c_menu_more">More launcher settings</string>
+    <string name="c_menu_dock_size">Dock icon size</string>
+    <string name="c_size_small">Small</string>
+    <string name="c_size_medium">Medium</string>
+    <string name="c_size_large">Large</string>
 </resources>

@@ -369,40 +369,6 @@
         </FrameLayout>
     </LinearLayout>
 
-    <!-- Continue watching (RecoStore): a row of cards between the header and the top shelf, shown while the dock (first
-         row) is focused. Up from the dock reaches it, Up again reaches the top bar, Down returns to the dock. Gone when
-         off or empty; invisible (so it cannot take focus) once focus is below the first row. -->
-    <LinearLayout
-        android:id="@+id/recoBlock"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top"
-        android:layout_marginTop="116dp"
-        android:paddingStart="56dp"
-        android:paddingEnd="56dp"
-        android:orientation="vertical"
-        android:visibility="gone">
-
-        <TextView
-            android:id="@+id/recoLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
-            android:text="@string/reco_title"
-            android:textColor="#CCFFFFFF"
-            android:textSize="16sp"
-            android:fontFamily="@string/font_medium" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recoRow"
-            android:layout_width="match_parent"
-            android:layout_height="124dp"
-            android:clipChildren="false"
-            android:clipToPadding="false"
-            android:overScrollMode="never"
-            android:scrollbars="none" />
-    </LinearLayout>
-
     <!-- The single floating glass highlight that springs between tiles. -->
     <com.gathin.tvhome.GlassView
         android:id="@+id/glass"

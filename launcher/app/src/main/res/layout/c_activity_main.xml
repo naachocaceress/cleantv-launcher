@@ -30,8 +30,7 @@
         android:paddingBottom="6dp"
         android:textColor="#F2FFFFFF"
         android:textSize="12sp"
-        android:fontFamily="@font/c_open_sans"
-        android:fontVariationSettings="'wght' 500"
+        android:fontFamily="@string/font_medium"
         android:singleLine="true" />
 
     <LinearLayout
@@ -60,8 +59,7 @@
                     android:layout_marginStart="4dp"
                     android:textColor="#8CFFFFFF"
                     android:textSize="12sp"
-                    android:fontFamily="@font/c_open_sans"
-                    android:fontVariationSettings="'wght' 500"
+                    android:fontFamily="@string/font_medium"
                     android:letterSpacing="0.22"
                     android:textAllCaps="true" />
 
@@ -79,8 +77,7 @@
                         android:format24Hour="HH:mm"
                         android:textColor="#FFFFFFFF"
                         android:textSize="52sp"
-                        android:fontFamily="@font/c_open_sans"
-                        android:fontVariationSettings="'wght' 300"
+                        android:fontFamily="@string/font_light"
                         android:letterSpacing="-0.04"
                         android:includeFontPadding="false" />
 
@@ -95,8 +92,7 @@
                         android:format24Hour=""
                         android:textColor="#B3FFFFFF"
                         android:textSize="15sp"
-                        android:fontFamily="@font/c_open_sans"
-                        android:fontVariationSettings="'wght' 500"
+                        android:fontFamily="@string/font_medium"
                         android:letterSpacing="0.08"
                         android:textAllCaps="true" />
 
@@ -119,8 +115,7 @@
                         android:format24Hour="EEEE  d MMMM"
                         android:textColor="#A6FFFFFF"
                         android:textSize="14sp"
-                        android:fontFamily="@font/c_open_sans"
-                        android:fontVariationSettings="'wght' 400"
+                        android:fontFamily="@string/font_regular"
                         android:letterSpacing="0.14"
                         android:textAllCaps="true" />
                 </LinearLayout>
@@ -173,40 +168,6 @@
         </FrameLayout>
     </LinearLayout>
 
-    <!-- Recommendations (Android TV "Watch Next"): a row of cards under the header, shown while the first row of apps is
-         focused and hidden when the list scrolls down, so it never meets the cards. Off in Settings, hidden when empty. -->
-    <LinearLayout
-        android:id="@+id/recoBlock"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top"
-        android:layout_marginTop="112dp"
-        android:paddingStart="56dp"
-        android:paddingEnd="56dp"
-        android:orientation="vertical"
-        android:visibility="gone">
-
-        <TextView
-            android:id="@+id/recoLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
-            android:text="@string/c_reco_title"
-            android:textColor="#CCFFFFFF"
-            android:textSize="16sp"
-            android:fontFamily="@font/c_open_sans"
-            android:fontVariationSettings="'wght' 500" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recoRow"
-            android:layout_width="match_parent"
-            android:layout_height="124dp"
-            android:clipChildren="false"
-            android:clipToPadding="false"
-            android:overScrollMode="never"
-            android:scrollbars="none" />
-    </LinearLayout>
-
     <!-- CIRCLES theme: the focused app's name, big, over the wallpaper, and the date under it. -->
     <LinearLayout
         android:id="@+id/circlesHero"
@@ -239,8 +200,7 @@
         android:text="@string/c_your_apps"
         android:textColor="#CCFFFFFF"
         android:textSize="16sp"
-        android:fontFamily="@font/c_open_sans"
-        android:fontVariationSettings="'wght' 500"
+        android:fontFamily="@string/font_medium"
         android:visibility="gone" />
     <!-- Dot under the focused dock icon, positioned in code. -->
     <View

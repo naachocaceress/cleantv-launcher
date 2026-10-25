@@ -45,7 +45,8 @@ if (-not $NoBuild) {
     Push-Location launcher
     try {
         if (-not $env:JAVA_HOME) { $env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr' }
-        & .\gradlew.bat testDebugUnitTest lintRelease assembleRelease --console=plain
+        # Through cmd so Java's "Picked up JAVA_TOOL_OPTIONS" notice on stderr is not shown as a PowerShell error.
+        cmd /c ".\gradlew.bat testDebugUnitTest lintRelease assembleRelease --console=plain 2>&1" | Out-Host
         if ($LASTEXITCODE) { throw 'The build, tests or lint failed after the merge.' }
     } finally { Pop-Location }
 }

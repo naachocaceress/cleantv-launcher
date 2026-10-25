@@ -10,21 +10,22 @@
   cleans up and builds). It never pushes.
 #>
 param([switch]$NoBuild)
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'   # git writes progress to stderr; failures are checked by exit code
+function G { & git @args 2>&1 | ForEach-Object { "$_" } }
 Set-Location (Split-Path -Parent $PSScriptRoot)
 
 if (git status --porcelain) { throw 'The working tree is not clean: commit or stash first.' }
 if (-not (git remote | Select-String -SimpleMatch 'upstream')) {
-    git remote add upstream https://github.com/Gathin23/cleanyourtv.git
+    G remote add upstream https://github.com/Gathin23/cleanyourtv.git
 }
-git fetch upstream
+G fetch upstream
 if ($LASTEXITCODE) { throw 'git fetch upstream failed.' }
 
 $ahead = [int](git rev-list --count HEAD..upstream/main)
 if ($ahead -eq 0) { Write-Host 'Already up to date with upstream/main.' }
 else {
     Write-Host "Merging $ahead upstream commits..."
-    git merge upstream/main --no-edit
+    G merge upstream/main --no-edit
     if ($LASTEXITCODE) { throw 'The merge stopped on a conflict: resolve it, commit, and run this script again.' }
 }
 
@@ -35,8 +36,8 @@ $drop = @('.github/workflows/ci.yml', '.github/workflows/addons.yml', '.github/w
           'CLAUDE.md', 'AGENTS.md', 'GEMINI.md')
 $present = $drop | Where-Object { Test-Path $_ }
 if ($present) {
-    git rm -r -q -f @present
-    git commit -q -m 'Drop upstream-only files this fork does not use (CI, maintainer bot, agent rules)'
+    G rm -r -q -f @present
+    G commit -q -m 'Drop upstream-only files this fork does not use (CI, maintainer bot, agent rules)'
     Write-Host ('Removed: ' + ($present -join ', '))
 }
 

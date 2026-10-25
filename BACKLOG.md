@@ -18,7 +18,7 @@ Lo que falta por hacer en CleanTV Launcher y en las TV box.
 
 - **Las dos TV box (222 y 220, antes 221) pasadas a la base nueva**: launcher instalado como inicio, tema Dock, tema `manhattan`
   empujado, salvapantallas `PhotoDream` activo, launcher de la operadora (`com.dla.android`) deshabilitado y mismas apps y versiones.
-- Base nueva: el launcher se puso al día con Gathin23/cleanyourtv v2.7 (merge real, con su historia).
+- Base nueva: el launcher se puso al día con Gathin23/cleanyourtv v3.0 (merge real, con su historia).
 - Volvieron los temas **Dock** y **Círculos** (Mosaicos es el de upstream), **mover apps**, los **fondos de Wikimedia** (ahora
   dentro de la colección de fondos de upstream) y el **panel de ajustes lateral**, también para los ajustes largos de upstream.
 - **Tamaño de los íconos del dock**: pequeño (el de siempre), mediano y grande.

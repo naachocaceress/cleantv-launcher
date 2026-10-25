@@ -41,8 +41,8 @@ import java.util.Set;
  * saved on the device and starts from res/values/config.xml (dock_apps).
  *
  * What a tile looks like depends on the {@link ClassicTheme}: in DOCK the first {@link #dockCount()} positions are the dock
- * (small icons) and the rest are banner cards; in CIRCLES every app is a round icon; in TILES every app is a wide tile
- * Only CIRCLES and TILES have no dock ({@link #dockCount()} is 0), so "pinned" just means "listed first".
+ * (small icons) and the rest are banner cards; in CIRCLES every app is a round icon.
+ * Only CIRCLES has no dock ({@link #dockCount()} is 0), so "pinned" just means "listed first".
  */
 public class ClassicAdapter extends RecyclerView.Adapter<ClassicAdapter.Holder> {
 
@@ -62,9 +62,7 @@ public class ClassicAdapter extends RecyclerView.Adapter<ClassicAdapter.Holder> 
         boolean onMoveKey(int position, int keyCode);
     }
 
-    static final int TYPE_ICON = 0, TYPE_BANNER = 1, TYPE_ROUND = 2, TYPE_WIDE = 3;
-    /** Tiles per row in the TILES theme, which is also how many apps fit on its plate (the dock of that theme). */
-    static final int TILES_COLUMNS = 5;
+    static final int TYPE_ICON = 0, TYPE_BANNER = 1, TYPE_ROUND = 2;
     /** Most apps that can be pinned in the CIRCLES theme (there is no dock, pinned apps just come first). */
     private static final int CIRCLES_MAX_PINNED = 12;
 
@@ -115,7 +113,6 @@ public class ClassicAdapter extends RecyclerView.Adapter<ClassicAdapter.Holder> 
 
     static final float FOCUS_SCALE = 1.10f;          // large icons
     static final float BANNER_FOCUS_SCALE = 1.06f;   // banner cards
-    static final float WIDE_FOCUS_SCALE = 1.18f;     // tvOS tiles
     static final float CORNER_RATIO = 0.225f;
 
     private final Context ctx;
@@ -288,14 +285,9 @@ public class ClassicAdapter extends RecyclerView.Adapter<ClassicAdapter.Holder> 
         return position >= 0 && position < pinnedCount;
     }
 
-    /** TILES theme: how many apps are on the plate (the first row); 0 in the other themes. */
-    int shelfCount() {
-        return theme == ClassicTheme.TILES ? Math.min(pinnedCount, TILES_COLUMNS) : 0;
-    }
-
     /** Most apps that can be pinned in the current theme. */
     private int pinLimit() {
-        return theme == ClassicTheme.DOCK ? maxDock : theme == ClassicTheme.TILES ? TILES_COLUMNS : CIRCLES_MAX_PINNED;
+        return theme == ClassicTheme.DOCK ? maxDock : CIRCLES_MAX_PINNED;
     }
 
     String pkgAt(int position) {
@@ -374,7 +366,6 @@ public class ClassicAdapter extends RecyclerView.Adapter<ClassicAdapter.Holder> 
 
     @Override
     public int getItemViewType(int position) {
-        if (theme == ClassicTheme.TILES) return TYPE_WIDE;
         if (theme == ClassicTheme.CIRCLES) return TYPE_ROUND;
         return isDocked(position) ? TYPE_ICON : TYPE_BANNER;
     }
@@ -383,7 +374,7 @@ public class ClassicAdapter extends RecyclerView.Adapter<ClassicAdapter.Holder> 
     @Override
     public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         int layout = viewType == TYPE_BANNER ? R.layout.c_item_banner
-                : viewType == TYPE_WIDE ? R.layout.c_item_wide : R.layout.c_item_app;
+                : R.layout.c_item_app;
         View v = LayoutInflater.from(parent.getContext()).inflate(layout, parent, false);
         return new Holder(v, listener, this, viewType);
     }
@@ -440,27 +431,6 @@ public class ClassicAdapter extends RecyclerView.Adapter<ClassicAdapter.Holder> 
                 h.icon.setImageDrawable(e.glyph != null ? e.glyph : e.icon);
                 h.icon.setVisibility(View.VISIBLE);
                 h.shadow.setVisibility(View.GONE);
-                break;
-            }
-            case TYPE_WIDE: {   // TILES: a wide tile; the colour comes from the art's own edges
-                lp.width = (int) (196 * d);
-                lp.height = (int) (131 * d);
-                h.card.setLayoutParams(lp);
-                if (e.glyph == null && e.banner == null) {
-                    h.card.setBackground(defaultBackground(e, 18 * d));   // no art of its own: a card in its icon's colour
-                } else {
-                    GradientDrawable tile = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, edgeColors(e));
-                    tile.setCornerRadius(18 * d);
-                    h.card.setBackground(tile);
-                }
-                boolean hasBanner = e.banner != null && e.glyph == null;
-                h.banner.setImageDrawable(e.banner);
-                h.banner.setVisibility(hasBanner ? View.VISIBLE : View.GONE);
-                h.icon.setImageDrawable(e.glyph != null ? e.glyph : e.icon);
-                h.icon.setVisibility(hasBanner ? View.GONE : View.VISIBLE);
-                if (e.glyph == null) h.icon.setPadding((int) (38 * d), (int) (28 * d), (int) (38 * d), (int) (28 * d));
-                h.label.setVisibility(View.GONE);
-                h.shadow.setVisibility(View.GONE);   // no name under the tile: the plate is all there is
                 break;
             }
             default: {   // TYPE_ICON, the small dock icons of the DOCK theme
@@ -642,7 +612,6 @@ public class ClassicAdapter extends RecyclerView.Adapter<ClassicAdapter.Holder> 
                         return;
                     }
                     float radius = Holder.this.type == TYPE_BANNER ? 12 * density
-                            : Holder.this.type == TYPE_WIDE ? 18 * density
                             : Math.min(view.getWidth(), view.getHeight()) * CORNER_RATIO;
                     outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
                 }
@@ -676,10 +645,9 @@ public class ClassicAdapter extends RecyclerView.Adapter<ClassicAdapter.Holder> 
                 boolean inDock = owner.isDocked(getBindingAdapterPosition());
                 if (!inDock) {
                     float s = !focused ? 1.0f : Holder.this.type == TYPE_BANNER ? BANNER_FOCUS_SCALE
-                            : Holder.this.type == TYPE_WIDE ? WIDE_FOCUS_SCALE : FOCUS_SCALE;
+                            : FOCUS_SCALE;
                     view.setScaleX(s);
                     view.setScaleY(s);
-                    if (Holder.this.type == TYPE_WIDE) view.setElevation(focused ? 18 * density : 0f);
                 }
                 name.setAlpha(focused ? 1f : 0f);
                 name.setTranslationY(focused ? density * 4f : 0f);

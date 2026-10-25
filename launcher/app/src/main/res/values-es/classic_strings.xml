@@ -53,4 +53,7 @@
     <string name="c_size_small">Pequeño</string>
     <string name="c_size_medium">Mediano</string>
     <string name="c_size_large">Grande</string>
+    <string name="c_menu_reorder">Reordenar apps</string>
+    <string name="c_move_pick">Primero poné el foco en una app del dock y después elegí Reordenar apps.</string>
+    <string name="c_screensaver_label">Fotos del launcher</string>
 </resources>

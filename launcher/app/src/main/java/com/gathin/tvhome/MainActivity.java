@@ -2274,6 +2274,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
 
 
+            @Override public Runnable reorder() {
+                return MainActivity.this::toggleReorder;
+            }
+
             @Override public Runnable inputs() {
                 return btnInputs.getVisibility() == View.VISIBLE ? MainActivity.this::showInputs : null;
             }

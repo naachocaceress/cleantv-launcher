@@ -49,6 +49,9 @@ final class ConfigSidebar {
         void onRebuild();
 
 
+        /** Starts moving the app in focus, or null when this home cannot. */
+        Runnable reorder();
+
         /** The Inputs dropdown, or null when this home has none. */
         Runnable inputs();
 
@@ -166,6 +169,10 @@ final class ConfigSidebar {
             addRow(rows, dialog, R.drawable.c_ic_theme, act.getString(R.string.c_menu_theme), false, false, themeScreen);
             addRow(rows, dialog, R.drawable.c_ic_wallpaper, act.getString(R.string.c_menu_wallpaper), false, false,
                     wallpaperScreen[0]);
+            Runnable reorder = host.reorder();
+            if (reorder != null) {
+                addRow(rows, dialog, R.drawable.c_ic_move, act.getString(R.string.c_menu_reorder), false, true, reorder);
+            }
             if (THEME_DOCK.equals(current)) {   // the size of the dock icons only exists in the Dock theme
                 addRow(rows, dialog, R.drawable.c_ic_theme, act.getString(R.string.c_menu_dock_size), false, false,
                         dockSizeScreen);

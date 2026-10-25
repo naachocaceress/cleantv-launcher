@@ -30,7 +30,7 @@ temas, biblioteca de apps, tarjetas de módulos y teclas del control vienen de a
 ### Panel de ajustes lateral
 
 El botón **Ajustes** abre un panel sobre el borde derecho, con el inicio atenuado detrás, en los tres temas: *Tema*,
-*Fondo de pantalla*, *Tamaño de los íconos del dock* (solo en Dock), *Más ajustes del launcher* (Mosaicos) y *Ajustes de Android*, más
+*Fondo de pantalla*, *Reordenar apps*, *Tamaño de los íconos del dock* (solo en Dock), *Más ajustes del launcher* (Mosaicos) y *Ajustes de Android*, más
 *Entradas* si el TV las tiene. Mantener OK en el botón sigue abriendo el menú de upstream (módulos, ajustes del TV...). Los
 ajustes largos de upstream (apps por fila, filas bajo el dock, animaciones, fondo) también se ven como panel lateral y no
 a pantalla completa.
@@ -45,6 +45,19 @@ bajó y volver al del tema. La lista no trae fotos: se descargan solo cuando las
 launcher tenga permiso de internet). Se regenera con
 [`tools/make_wallpaper_catalog.py`](tools/make_wallpaper_catalog.py), o sumás la tuya con `c_wallpaper_catalog_url` en
 [`classic_config.xml`](launcher/app/src/main/res/values/classic_config.xml).
+
+### Salvapantallas con tus fotos
+
+`PhotoDream` es un salvapantallas que recorre la colección de fondos del launcher (las del tema y las que bajaste de
+Wikimedia) con un zoom lento, fundidos y un reloj chico en la esquina; sin fotos, queda el reloj sobre negro. Se elige en los
+ajustes del TV (Salvapantallas) o por ADB:
+
+```bash
+adb shell settings put secure screensaver_components com.gathin.tvhome/com.gathin.tvhome.PhotoDream
+adb shell settings put secure screensaver_enabled 1
+```
+
+Upstream trae otro, el del reloj (`ClockDream`), que sigue disponible.
 
 ### Actualizar sin perder los ajustes
 
@@ -114,7 +127,7 @@ Un TV que ya tenía este launcher con el tema Dock o Círculos guardado sigue ab
 
 ```bash
 git remote add upstream https://github.com/Gathin23/cleanyourtv.git   # una vez
-git fetch upstream && git merge upstream/main
+git fetch upstream && git merge upstream/main   # or just run tools/sync-upstream.ps1
 ```
 
 Los puntos donde este fork toca archivos de upstream son pocos, para que el merge duela poco:
@@ -127,10 +140,10 @@ scripts de instalación (dos líneas). Todo lo demás son archivos nuevos: `Clas
 `classic_*.xml`, `install.ps1`, `themes/manhattan/`.
 
 Upstream también trae `.github/` (su CI, con un límite de 480 KB para el APK, y un bot de mantenimiento programado),
-`CLAUDE.md`, `AGENTS.md` y `GEMINI.md` (reglas de sus mantenedores para agentes). Este fork no los usa: después de cada merge,
-`git rm -r .github CLAUDE.md AGENTS.md GEMINI.md`.
+`CLAUDE.md`, `AGENTS.md` y `GEMINI.md` (reglas de sus mantenedores para agentes). Este fork no los usa:
+`tools/sync-upstream.ps1` hace el merge, quita esos archivos (menos nuestro CI, `.github/workflows/cleantv-ci.yml`) y corre los tests y el lint.
 
-Qué quedó fuera por tener equivalente en upstream: el salvapantallas de fotos (upstream trae el del reloj) y los íconos de
+Qué quedó fuera por tener equivalente en upstream: los íconos de
 marca dibujados en la máquina (cada app muestra su banner).
 
 ## Herramientas de limpieza

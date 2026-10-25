@@ -10,15 +10,12 @@ Lo que falta por hacer en CleanTV Launcher y en las TV box.
   `launcher\install.ps1 192.168.0.222 192.168.0.221` y empujar el tema `themes/manhattan`. La actualización encima conserva
   el tema guardado (Dock en la 222).
 - [ ] **Disney+**: comprobar si la versión instalada en la TV box es la última disponible (APKMirror, hash verificado) y actualizarla si no.
-- [ ] **Dock y Círculos: banners nítidos**: `ClassicAdapter` carga el banner de la app a la densidad del TV; upstream lo hace
-  a xhdpi o más (`AppAdapter.loadBanner`), que se ve mejor en el B866V2 (hdpi). Copiar esa mejora.
-- [ ] **Dock y Círculos: código del tema Mosaicos viejo**: `ClassicTheme.TILES` y sus ramas ya no se usan (Mosaicos es el de
-  upstream); quitarlos de `ClassicHome`, `ClassicAdapter` y `ClassicShelfDecoration`.
 - [ ] **Traducciones**: los textos de los temas y del panel están en español e inglés; sumar los otros idiomas de upstream si hace falta.
 - [ ] **Recomendaciones / seguir viendo**: se probó (Watch Next más un historial propio sacado de las sesiones de reproducción)
-  y no quedó bien, así que se quitó. En un TV box sin Google casi ninguna app publica en Watch Next, y los launchers abiertos
-  que lo intentan están en desarrollo temprano. Si se retoma: que el launcher mande `android.media.tv.action.INITIALIZE_PROGRAMS`
-  y lea los canales de vista previa, o leer las sesiones de reproducción con un diseño mejor.
+  y no quedó bien, así que se quitó. Se probó también mandar `INITIALIZE_PROGRAMS` a Netflix, Prime, Crunchyroll, YouTube y Max
+  (como hace el launcher de Google): no publicaron ningún canal ni programa en estas cajas, así que esa vía no sirve. Los
+  launchers abiertos que lo intentan están en desarrollo temprano. Se retomaría solo con otro diseño (por ejemplo, un historial
+  propio mejor hecho) o si alguna app de la caja empieza a publicar.
 
 ## Hecho recientemente
 
@@ -26,6 +23,10 @@ Lo que falta por hacer en CleanTV Launcher y en las TV box.
 - Volvieron los temas **Dock** y **Círculos** (Mosaicos es el de upstream), **mover apps**, los **fondos de Wikimedia** (ahora
   dentro de la colección de fondos de upstream) y el **panel de ajustes lateral**, también para los ajustes largos de upstream.
 - **Tamaño de los íconos del dock**: pequeño (el de siempre), mediano y grande.
+- **Reordenar apps** en el panel (Dock, Círculos y Mosaicos), y el código viejo del tema Mosaicos fuera de `ClassicHome`.
+- **Salvapantallas con tus fotos** (`PhotoDream`) usando la colección de fondos, y el banner a densidad xhdpi en Dock y Círculos.
+- **Medición** (ZTE B866V2): arranque en frío 3,1 s con el launcher viejo contra 2,4 s en Mosaicos y 2,2 s en Dock y Círculos; memoria 55 MB contra 28 a 38 MB.
+- `tools/sync-upstream.ps1` (merge de upstream más limpieza más tests y lint) y un CI propio en GitHub.
 - Una sola tipografía (Outfit, la de Mosaicos): se quitó Open Sans y el APK bajó de 913 a 554 KB.
 - Se quitó la fila de recomendaciones y el historial (ver arriba).
 - Tema `manhattan` con las fotos de siempre y la franja horaria de upstream.

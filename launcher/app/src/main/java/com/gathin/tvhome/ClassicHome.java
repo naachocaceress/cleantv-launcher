@@ -110,7 +110,6 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
     static final int[] DOCK_ICON_SIZES = {56, 68, 80};
     static final int[] DOCK_SIZE_MAX = {0, 7, 6};   // 0: small keeps the config.xml numbers (c_dock_max, c_dock_slots)
     private static final long MINUTE_MS = 60_000L;
-    private static final int TILES_COLUMNS = ClassicAdapter.TILES_COLUMNS;   // only reachable through the old Tiles layout
     private String liveTvPkg;
 
     private ClassicAdapter adapter;
@@ -131,7 +130,6 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
     private TextView greeting;
     private ClassicTheme theme = ClassicTheme.DOCK;
     private ClassicDockDecoration dockDecoration;
-    private ClassicShelfDecoration shelfDecoration;
     private View circlesHero, yourAppsLabel;
     private TextView heroTitle;
     private TextView btnWifi;
@@ -202,7 +200,6 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
 
         adapter = new ClassicAdapter(this, this, DOCK_MAX);
         dockDecoration = new ClassicDockDecoration(adapter, DOCK_SLOTS, density);
-        shelfDecoration = new ClassicShelfDecoration(adapter, density);
         theme = ClassicTheme.from(ConfigSidebar.theme(this));
         adapter.setTheme(theme);
         grid.setAdapter(adapter);
@@ -284,7 +281,6 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
     /** Layout manager, spans and decoration for the current theme. */
     private void configureGrid() {
         if (dockDecoration != null) grid.removeItemDecoration(dockDecoration);
-        if (shelfDecoration != null) grid.removeItemDecoration(shelfDecoration);
         GridLayoutManager glm;
         if (theme == ClassicTheme.DOCK) {
             // The row is 2 * DOCK_SLOTS units wide (half-icon units, so the dock stays exactly centred for any number
@@ -303,20 +299,8 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
                 }
             });
             grid.addItemDecoration(dockDecoration);
-        } else if (theme == ClassicTheme.CIRCLES) {
-            glm = new ClassicGridLayoutManager(this, 1, GridLayoutManager.HORIZONTAL);   // one row of round icons
         } else {
-            // TILES: the first row is the plate with the pinned apps. When fewer are pinned than the plate has room for,
-            // the last one takes the empty cells (the decoration pushes its tile back to its own cell).
-            glm = new ClassicGridLayoutManager(this, TILES_COLUMNS);
-            glm.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
-                @Override
-                public int getSpanSize(int position) {
-                    int n = adapter.shelfCount();
-                    return n > 0 && n < TILES_COLUMNS && position == n - 1 ? TILES_COLUMNS - n + 1 : 1;
-                }
-            });
-            grid.addItemDecoration(shelfDecoration);
+            glm = new ClassicGridLayoutManager(this, 1, GridLayoutManager.HORIZONTAL);   // one row of round icons
         }
         grid.setLayoutManager(glm);
         applyGridPadding();
@@ -338,20 +322,17 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
 
     /**
      * Side margins per theme, and the top padding: in DOCK it pushes the dock row to the bottom of the screen (the
-     * cards below hide until you press Down); in CIRCLES and TILES the grid hangs from the bottom so the wallpaper shows
+     * cards below hide until you press Down); in CIRCLES the grid hangs from the bottom so the wallpaper shows
      * above it. The header (greeting, clock, date, connection, settings) is the same in every theme.
      */
     private void applyGridPadding() {
-        int side = (int) ((theme == ClassicTheme.DOCK ? 264 : theme == ClassicTheme.TILES ? 20 : 0) * density);   // the screen already has a 56dp margin
-        int bottom = (int) ((theme == ClassicTheme.DOCK ? 40 : theme == ClassicTheme.TILES ? 24 : 36) * density);
+        int side = (int) ((theme == ClassicTheme.DOCK ? 264 : 0) * density);   // the screen already has a 56dp margin
+        int bottom = (int) ((theme == ClassicTheme.DOCK ? 40 : 36) * density);
         int top;
         if (theme == ClassicTheme.DOCK) {
             top = Math.max(0, grid.getHeight() - (int) ((101 + 6 + 12 + (DOCK_ICON_DP - 56)) * density) + (int) (8 * density));
-        } else if (theme == ClassicTheme.CIRCLES) {
-            top = 0;   // the grid itself is only as tall as the row and sits at the bottom (see below)
         } else {
-            // tvOS: the first row (inside the shelf) sits low, the second one peeks in below it.
-            top = Math.max((int) (12 * density), grid.getHeight() - (int) ((175 + 44) * density));   // the whole plate, the next row just peeking in
+            top = 0;   // the grid itself is only as tall as the row and sits at the bottom (see below)
         }
         if (grid.getPaddingTop() != top || grid.getPaddingLeft() != side || grid.getPaddingBottom() != bottom) {
             grid.setPadding(side, top, side, bottom);
@@ -390,16 +371,9 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
                 if (dx != 0) grid.scrollBy(dx, 0);
                 return;
             }
-            int dy;
-            if (theme == ClassicTheme.TILES) {   // both of the first rows are on screen: scroll only for rows further down
-                int limit = grid.getHeight() - grid.getPaddingBottom();
-                dy = item.getBottom() > limit ? item.getBottom() - limit
-                        : item.getTop() < grid.getPaddingTop() ? item.getTop() - grid.getPaddingTop() : 0;
-            } else {   // DOCK: the focused row's bottom on the bottom margin
-                dy = item.getBottom() - (grid.getHeight() - grid.getPaddingBottom());
-            }
+            int dy = item.getBottom() - (grid.getHeight() - grid.getPaddingBottom());   // DOCK: the focused row's bottom on the bottom margin
             if (dy != 0) grid.scrollBy(0, dy);
-            grid.invalidate();   // the TILES plate follows the focused row
+            grid.invalidate();
         });
     }
 
@@ -496,7 +470,7 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
     @Override
     public boolean onTileVerticalKey(int position, int keyCode) {
         if (theme == ClassicTheme.CIRCLES) return keyCode == KeyEvent.KEYCODE_DPAD_DOWN;   // one row: Down stays, Up reaches the header
-        if (theme != ClassicTheme.DOCK) return false;   // TILES is a plain grid: Android's focus search does it
+        if (theme != ClassicTheme.DOCK) return false;   // the other theme is one row: Android's focus search does it
         int count = adapter.getItemCount();
         int dock = adapter.dockCount();
         int target;
@@ -558,7 +532,7 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         popup.setElevation(0f);
 
         // Only pinned apps can be reordered (that is what pinning is for); the other apps stay alphabetical.
-        if (adapter.isPinnedAt(position) || theme == ClassicTheme.TILES || theme == ClassicTheme.CIRCLES) addInputRow(rows, popup, R.drawable.c_ic_move, getString(R.string.c_move), -1, () -> startMove(pkg));
+        if (adapter.isPinnedAt(position) || theme == ClassicTheme.CIRCLES) addInputRow(rows, popup, R.drawable.c_ic_move, getString(R.string.c_move), -1, () -> startMove(pkg));
         if (theme == ClassicTheme.CIRCLES) {
             // one long row: no pinning, only Move
         } else if (adapter.isPinned(pkg)) {
@@ -603,7 +577,7 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
 
     // ---- moving apps -----------------------------------------------------------------------------
     // Move: from an app's menu (hold OK). Pinned apps slide along the dock / plate / start of the row with Left and Right;
-    // in the TILES theme the apps outside the plate also move with all four arrows. OK or Back finishes.
+    // OK or Back finishes.
 
     private String movingPkg;
 
@@ -642,8 +616,6 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
                 if (adapter.isPinnedAt(position)) {   // pinned apps slide along the dock / plate / start of the row
                     if (!sideways) return true;
                     adapter.move(pkg, sign);
-                } else if (theme == ClassicTheme.TILES) {   // the apps outside the plate can go anywhere among themselves
-                    adapter.moveInRest(pkg, sideways ? sign : sign * TILES_COLUMNS);
                 } else if (theme == ClassicTheme.CIRCLES) {   // one row: every app moves along it
                     if (!sideways) return true;
                     adapter.moveInRest(pkg, sign);
@@ -675,6 +647,15 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         host.recreate();   // read the wallpaper collection and the choice again
     }
 
+
+    @Override
+    public Runnable reorder() {
+        return () -> {
+            int pos = lastFocused;
+            if (adapter.isPinnedAt(pos) || theme == ClassicTheme.CIRCLES) startMove(adapter.pkgAt(pos));
+            else Toast.makeText(this, R.string.c_move_pick, Toast.LENGTH_LONG).show();
+        };
+    }
     @Override
     public Runnable inputs() {
         return this::showInputs;

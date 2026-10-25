@@ -29,7 +29,7 @@ themes, the app library, module cards and the remote-key helpers all come from t
 ### Settings sidebar
 
 The **Settings** button opens a panel on the right edge with Home dimmed behind it, in all three themes: *Theme*,
-*Wallpaper*, *Dock icon size* (Dock only), *More launcher settings* (Tiles) and *Android settings*, plus *Inputs* when the
+*Wallpaper*, *Reorder apps*, *Dock icon size* (Dock only), *More launcher settings* (Tiles) and *Android settings*, plus *Inputs* when the
 TV has them. Holding OK on the button still opens upstream's menu (modules, TV settings...). Upstream's long settings page
 (apps per row, rows below the dock, animations, wallpaper) is also a side panel instead of a full screen.
 
@@ -43,6 +43,19 @@ the theme's. The list holds only links: a picture is fetched when you ask (the o
 permission). Rebuild the list with
 [`tools/make_wallpaper_catalog.py`](tools/make_wallpaper_catalog.py), or add your own with `c_wallpaper_catalog_url` in
 [`classic_config.xml`](launcher/app/src/main/res/values/classic_config.xml).
+
+### Screensaver with your pictures
+
+`PhotoDream` is a screensaver that goes through the launcher's wallpaper collection (the theme's own and the ones downloaded
+from Wikimedia) with a slow zoom, crossfades and a small clock in the corner; with no pictures it is the clock on black. Pick it
+in the TV's settings (Screensaver) or over adb:
+
+```bash
+adb shell settings put secure screensaver_components com.gathin.tvhome/com.gathin.tvhome.PhotoDream
+adb shell settings put secure screensaver_enabled 1
+```
+
+Upstream's clock one (`ClockDream`) is still available.
 
 ### Updating without losing settings
 
@@ -108,7 +121,7 @@ keeps your settings on update: a TV that had Dock or Circles saved keeps opening
 
 ```bash
 git remote add upstream https://github.com/Gathin23/cleanyourtv.git   # once
-git fetch upstream && git merge upstream/main
+git fetch upstream && git merge upstream/main   # or just run tools/sync-upstream.ps1
 ```
 
 This fork touches few upstream files, to keep merges cheap: `MainActivity.java` (the sidebar
@@ -120,10 +133,10 @@ card menu), `app/build.gradle` (signing) and the install scripts (two lines). Ev
 the `c_…` resources and `classic_*.xml`, `install.ps1`, `themes/manhattan/`.
 
 Upstream also ships `.github/` (its CI, with a 480 KB APK cap, and a scheduled maintenance bot), `CLAUDE.md`, `AGENTS.md` and
-`GEMINI.md` (its maintainers' rules for agents). This fork does not use them: after each merge,
-`git rm -r .github CLAUDE.md AGENTS.md GEMINI.md`.
+`GEMINI.md` (its maintainers' rules for agents). This fork does not use them:
+`tools/sync-upstream.ps1` does the merge, removes those files (but not our own CI, `.github/workflows/cleantv-ci.yml`) and runs the tests and lint.
 
-Left out because upstream has an equivalent: the photo screensaver (upstream has the clock one) and the brand icons drawn on
+Left out because upstream has an equivalent: the brand icons drawn on
 your machine (every app shows its own banner).
 
 ## Licence

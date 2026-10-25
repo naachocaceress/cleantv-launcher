@@ -1,0 +1,33 @@
+# CleanTV fork's own CI: build, unit tests and lint of the launcher. Upstream's workflows (with their APK size cap and the
+# maintenance bot) are deliberately not used; tools/sync-upstream.ps1 removes them after each merge.
+name: CleanTV CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  launcher:
+    name: Launcher build, unit tests and lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platforms;android-34 build-tools;34.0.0
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests, lint and release build
+        working-directory: launcher
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon testReleaseUnitTest lintRelease assembleRelease
+      - name: APK size
+        run: echo "release APK $(( $(stat -c %s launcher/app/build/outputs/apk/release/app-release.apk) / 1024 )) KB"

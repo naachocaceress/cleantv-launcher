@@ -4,12 +4,9 @@ Lo que falta por hacer en CleanTV Launcher y en las TV box.
 
 ## Pendiente
 
-- [ ] **Pasar las dos TV box a la base nueva**: el launcher ya está sobre cleanyourtv (v2.7), con los temas Dock, Círculos y
-  Mosaicos, el panel lateral, los fondos de Wikimedia, mover apps y el tamaño de los íconos del dock, y probado en la 222 como
-  copia de prueba (`com.gathin.tvhomedev`). Falta instalarlo como inicio en la 222 y en la 221 (estaba apagada) con
-  `launcher\install.ps1 192.168.0.222 192.168.0.221` y empujar el tema `themes/manhattan`. La actualización encima conserva
-  el tema guardado (Dock en la 222).
-- [ ] **Disney+**: comprobar si la versión instalada en la TV box es la última disponible (APKMirror, hash verificado) y actualizarla si no.
+- [ ] **Disney+**: la versión instalada (26.18.0 rc5, del 5 de octubre) es más nueva que cualquier cosa que aparezca en búsqueda
+  (26.12 de julio); no se pudo comprobar si hay una más nueva. Mirar la página de Disney+ Android TV en APKMirror.
+- [ ] **Dock de la 220**: en la 222 Max está fijado en el dock (de cuando se usaba el launcher viejo) y en la 220 no; fijarlo ahí si se quiere igual.
 - [ ] **Traducciones**: los textos de los temas y del panel están en español e inglés; sumar los otros idiomas de upstream si hace falta.
 - [ ] **Recomendaciones / seguir viendo**: se probó (Watch Next más un historial propio sacado de las sesiones de reproducción)
   y no quedó bien, así que se quitó. Se probó también mandar `INITIALIZE_PROGRAMS` a Netflix, Prime, Crunchyroll, YouTube y Max
@@ -19,6 +16,8 @@ Lo que falta por hacer en CleanTV Launcher y en las TV box.
 
 ## Hecho recientemente
 
+- **Las dos TV box (222 y 220, antes 221) pasadas a la base nueva**: launcher instalado como inicio, tema Dock, tema `manhattan`
+  empujado, salvapantallas `PhotoDream` activo, launcher de la operadora (`com.dla.android`) deshabilitado y mismas apps y versiones.
 - Base nueva: el launcher se puso al día con Gathin23/cleanyourtv v2.7 (merge real, con su historia).
 - Volvieron los temas **Dock** y **Círculos** (Mosaicos es el de upstream), **mover apps**, los **fondos de Wikimedia** (ahora
   dentro de la colección de fondos de upstream) y el **panel de ajustes lateral**, también para los ajustes largos de upstream.

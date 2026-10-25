@@ -36,7 +36,8 @@ if (-not $NoBuild) {
         "sdk.dir=" + ($sdk -replace '\\', '/') | Set-Content -Encoding ascii $props
     }
     Push-Location $here
-    try { & .\gradlew.bat assembleRelease -q --console=plain; if ($LASTEXITCODE) { throw 'Gradle build failed.' } }
+    # Through cmd so Java's "Picked up JAVA_TOOL_OPTIONS" notice on stderr is not shown as a PowerShell error.
+    try { cmd /c ".\gradlew.bat assembleRelease -q --console=plain 2>&1" | Out-Host; if ($LASTEXITCODE) { throw 'Gradle build failed.' } }
     finally { Pop-Location }
 }
 $apk = Join-Path $here 'app\build\outputs\apk\release\app-release.apk'

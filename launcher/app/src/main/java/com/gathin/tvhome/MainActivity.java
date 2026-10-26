@@ -1152,7 +1152,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     public void onUserInteraction() {
         super.onUserInteraction();
-        if (classic != null) return;
+        if (classic != null) { classic.onUserInteraction(); return; }
         restartIdleClock();
     }
 
@@ -2494,20 +2494,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
             @Override public void onRebuild() {
                 recreate();
-            }
-
-
-            @Override public Runnable reorder() {
-                return MainActivity.this::toggleReorder;
-            }
-
-            @Override public Runnable inputs() {
-                return btnInputs.getVisibility() == View.VISIBLE ? MainActivity.this::showInputs : null;
-            }
-
-            @Override public Runnable moreSettings() {
-                return () -> startActivityForResult(new Intent(MainActivity.this, LauncherSettingsActivity.class),
-                        LAUNCHER_SETTINGS_REQUEST);
             }
         };
     }

@@ -6,6 +6,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
@@ -127,12 +128,16 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
     private GradientDrawable ambientGlow;
     private int ambientColor;
     private boolean heroShown;
-    private TextView greeting;
+    private HomeHeader header;
+    private Config cfg;
+    /** Launcher settings, Animations: off makes the dock, the name tooltip and the menus appear at once. */
+    private boolean animations = true;
+    /** The launcher settings change count this Home was built with; when it moves (settings were closed), rebuild. */
+    private long settingsRevision;
     private ClassicTheme theme = ClassicTheme.DOCK;
     private ClassicDockDecoration dockDecoration;
     private View circlesHero, yourAppsLabel;
     private TextView heroTitle;
-    private TextView btnWifi;
     private float glassTargetX, glassTargetY;
     private boolean glassShown;
     private int lastFocused = 0;
@@ -141,23 +146,21 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
     private float density;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private static final int[] WIFI_ICONS = {R.drawable.c_ic_wifi_1, R.drawable.c_ic_wifi_2, R.drawable.c_ic_wifi};
     // Refresh the Wi-Fi pill as soon as the connection changes, not on the next minute tick.
     private final ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
-        @Override public void onAvailable(@NonNull Network n) { handler.post(ClassicHome.this::updateWifiLabel); }
-        @Override public void onLost(@NonNull Network n) { handler.post(ClassicHome.this::updateWifiLabel); }
+        @Override public void onAvailable(@NonNull Network n) { handler.post(ClassicHome.this::updateHeader); }
+        @Override public void onLost(@NonNull Network n) { handler.post(ClassicHome.this::updateHeader); }
         @Override public void onCapabilitiesChanged(@NonNull Network n, @NonNull NetworkCapabilities c) {
-            handler.post(ClassicHome.this::updateWifiLabel);
+            handler.post(ClassicHome.this::updateHeader);
         }
         @Override public void onLinkPropertiesChanged(@NonNull Network n, @NonNull LinkProperties p) {
-            handler.post(ClassicHome.this::updateWifiLabel);
+            handler.post(ClassicHome.this::updateHeader);
         }
     };
     private final Runnable minuteTick = new Runnable() {
         @Override
         public void run() {
-            updateGreeting();
-            updateWifiLabel();
+            updateHeader();
             handler.postDelayed(this, MINUTE_MS);
         }
     };
@@ -177,7 +180,10 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         liveTvPkg = getString(R.string.live_tv_package).trim();
 
         root = findViewById(R.id.root);
-        wallpaperPlayer = new WallpaperPlayer(this, root, Config.load(this));
+        cfg = Config.load(this);
+        settingsRevision = settingsRevision();
+        animations = cfg.animations && !cfg.reducedMotion;
+        wallpaperPlayer = new WallpaperPlayer(this, root, cfg);
         glass = findViewById(R.id.glass);
         ambient = findViewById(R.id.ambient);
         heroName = findViewById(R.id.heroName);
@@ -188,8 +194,6 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         ambient.setBackground(ambientGlow);
         ambient.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) ->
                 ambientGlow.setGradientRadius((r - l) * 0.62f));
-        greeting = findViewById(R.id.greeting);
-        btnWifi = findViewById(R.id.btnWifi);
         circlesHero = findViewById(R.id.circlesHero);
         heroTitle = findViewById(R.id.heroTitle);
         yourAppsLabel = findViewById(R.id.yourAppsLabel);
@@ -210,22 +214,19 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         // Keep the grid's padding right for the theme (in DOCK it also pushes the dock row to the bottom).
         grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> applyGridPadding());
 
-        // The top bar has two buttons: the connection (Wi-Fi, Ethernet or offline, as it is right now) and Settings,
-        // which opens the launcher's own panel (theme, wallpaper) with the Android settings inside it.
-        View btnSettings = findViewById(R.id.btnSettings);
-        btnWifi.setOnClickListener(v -> open(new Intent(Settings.ACTION_WIFI_SETTINGS)));
-        btnSettings.setOnClickListener(v -> showSidebar(ConfigSidebar.SCREEN_MENU));
+        // The header is the Tiles home's own (home_header.xml): greeting, clock and date, and the Inputs, network and
+        // Settings pills, with the same config. Settings opens the sidebar here.
+        header = new HomeHeader(this, root, cfg, this::showInputs, () -> showSidebar(ConfigSidebar.SCREEN_MENU));
 
         // Keep focus on the top bar at its ends and at the top: Android's focus finder would otherwise
         // jump to a tile far below when there is nothing in that direction.
         View.OnKeyListener pillKeys = (v, keyCode, event) -> {
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
-            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v.getId() == R.id.btnWifi) return true;
-            return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == R.id.btnSettings;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) return v == header.firstPill();
+            return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v == header.settingsPill();
         };
-        btnWifi.setOnKeyListener(pillKeys);
-        btnSettings.setOnKeyListener(pillKeys);
+        for (int id : new int[]{R.id.btnInputs, R.id.btnWifi, R.id.btnSettings}) findViewById(id).setOnKeyListener(pillKeys);
 
         // Hide the glass when focus leaves the tiles.
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldF, newF) -> {
@@ -237,7 +238,17 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         });
     }
 
+    private long settingsRevision() {
+        return getSharedPreferences(Config.SETTINGS_NAME, MODE_PRIVATE).getLong(Config.SETTINGS_REVISION_KEY, 0);
+    }
+
     void onResume() {
+        if (openOnStartAfterBoot()) return;
+        restartIdleClock();
+        if (Config.settingsChanged(settingsRevision, settingsRevision())) {   // launcher settings were changed
+            host.recreate();
+            return;
+        }
         wallpaperPlayer.start();
         glassShown = false;
         glass.setAlpha(0f);
@@ -246,8 +257,7 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         dockDot.setAlpha(0f);
         ambient.setAlpha(0f);
         adapter.reload();
-        updateGreeting();
-        updateWifiLabel();
+        updateHeader();
         handler.postDelayed(minuteTick, MINUTE_MS);
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         if (cm != null) cm.registerDefaultNetworkCallback(networkCallback);
@@ -261,6 +271,7 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
     }
 
     void onPause() {
+        root.removeCallbacks(showIdleClock);
         wallpaperPlayer.stop();
         handler.removeCallbacks(minuteTick);
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
@@ -409,13 +420,13 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
             card.setPivotX(card.getWidth() / 2f);
             card.setPivotY(card.getHeight());
             card.animate().scaleX(s).scaleY(s).translationY(-lift * density)
-                    .setDuration(220).setInterpolator(new DecelerateInterpolator()).start();
+                    .setDuration(ms(220)).setInterpolator(new DecelerateInterpolator()).start();
             // The shadow grows from the same point (the icon's bottom centre) so it stays under the icon.
             View shadow = item.findViewById(R.id.shadow);
             shadow.setPivotX(shadow.getWidth() / 2f);
             shadow.setPivotY(card.getBottom() - shadow.getTop());
             shadow.animate().scaleX(s).scaleY(s).translationY(-lift * density)
-                    .setDuration(220).setInterpolator(new DecelerateInterpolator()).start();
+                    .setDuration(ms(220)).setInterpolator(new DecelerateInterpolator()).start();
         }
     }
 
@@ -428,17 +439,17 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         heroName.setY(iconTop - 8 * density - heroName.getMeasuredHeight());
         dockDot.setX(card.exactCenterX() - dockDot.getWidth() / 2f);
         dockDot.setY(card.bottom + 3 * density);
-        heroName.animate().alpha(1f).setDuration(160).start();
-        dockDot.animate().alpha(1f).setDuration(160).start();
+        heroName.animate().alpha(1f).setDuration(ms(160)).start();
+        dockDot.animate().alpha(1f).setDuration(ms(160)).start();
         int color = adapter.ambientColorAt(position);
         if (!heroShown) {
             setAmbient(color);
-            ambient.animate().alpha(1f).setDuration(600).start();
+            ambient.animate().alpha(1f).setDuration(ms(600)).start();
             heroShown = true;
         } else if (color != ambientColor) {
-            ambient.animate().alpha(0.35f).setDuration(200).withEndAction(() -> {
+            ambient.animate().alpha(0.35f).setDuration(ms(200)).withEndAction(() -> {
                 setAmbient(color);
-                ambient.animate().alpha(1f).setDuration(500).start();
+                ambient.animate().alpha(1f).setDuration(ms(500)).start();
             }).start();
         }
     }
@@ -453,9 +464,9 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
     private void hideHero() {
         if (!heroShown) return;
         heroShown = false;
-        heroName.animate().alpha(0f).setDuration(160).start();
-        dockDot.animate().alpha(0f).setDuration(160).start();
-        ambient.animate().alpha(0f).setDuration(300).start();
+        heroName.animate().alpha(0f).setDuration(ms(160)).start();
+        dockDot.animate().alpha(0f).setDuration(ms(160)).start();
+        ambient.animate().alpha(0f).setDuration(ms(300)).start();
         magnifyDock(-1);
     }
 
@@ -559,9 +570,9 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         int x = (int) (r.exactCenterX() - width / 2f);
         int y = (int) (top - 12 * density - panel.getMeasuredHeight());
         if (y < 0) y = (int) (r.bottom + 12 * density);   // no room above (top row): open below the tile
-        heroName.animate().alpha(0f).setDuration(120).start();
+        heroName.animate().alpha(0f).setDuration(ms(120)).start();
         popup.setOnDismissListener(() -> {
-            if (adapter.isDocked(lastFocused) && heroShown) heroName.animate().alpha(1f).setDuration(160).start();
+            if (adapter.isDocked(lastFocused) && heroShown) heroName.animate().alpha(1f).setDuration(ms(160)).start();
         });
         if (docked) {   // the dock keeps its soft rise-in; menus over the grid just appear
             panel.setAlpha(0f);
@@ -569,7 +580,7 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         }
         popup.showAtLocation(root, Gravity.NO_GRAVITY, x, y);
         if (docked) {
-            panel.animate().alpha(1f).translationY(0f).setDuration(200)
+            panel.animate().alpha(1f).translationY(0f).setDuration(ms(200))
                     .setInterpolator(new DecelerateInterpolator(1.6f)).start();
         }
         rows.getChildAt(0).requestFocus();
@@ -647,25 +658,6 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         host.recreate();   // read the wallpaper collection and the choice again
     }
 
-
-    @Override
-    public Runnable reorder() {
-        return () -> {
-            int pos = lastFocused;
-            if (adapter.isPinnedAt(pos) || theme == ClassicTheme.CIRCLES) startMove(adapter.pkgAt(pos));
-            else Toast.makeText(this, R.string.c_move_pick, Toast.LENGTH_LONG).show();
-        };
-    }
-    @Override
-    public Runnable inputs() {
-        return this::showInputs;
-    }
-
-    @Override
-    public Runnable moreSettings() {
-        return null;   // upstream's longer settings page belongs to the Tiles home
-    }
-
     /** After the dock changes, focus the app's new tile once the grid has re-laid out. */
     private void focusAfterLayout(String pkg) {
         hideHero();
@@ -723,44 +715,49 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         return 3;
     }
 
-    private void updateGreeting() {
-        String text = getString(GREETINGS[dayPart()]);
-        String name = getString(R.string.greeting_name).trim();
-        greeting.setText(name.isEmpty() ? text : text + ", " + name);
+    /** An animation length, or 0 (at once) when animations are switched off in the launcher settings. */
+    private long ms(long duration) {
+        return animations ? duration : 0;
     }
 
     /**
-     * The connection button is just an icon: the Ethernet plug when wired, the Wi-Fi symbol (with signal bars) when on
-     * Wi-Fi, and the same symbols with a slash across them when there is no internet or no network at all.
+     * Launcher settings, "Open on start" (or boot_to_live_tv): the first time Home comes up after the TV starts, open that
+     * app instead. The same rule as the Tiles home (OpenOnStart): once per boot, committed before the app starts.
      */
-    private void updateWifiLabel() {
-        ConnectivityManager cm = getSystemService(ConnectivityManager.class);
-        Network net = cm != null ? cm.getActiveNetwork() : null;
-        NetworkCapabilities caps = net != null ? cm.getNetworkCapabilities(net) : null;
-        if (caps == null) {
-            setConnectionIcon(R.drawable.c_ic_wifi_off, getString(R.string.c_offline));
-            return;
-        }
-        boolean online = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
-        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
-            setConnectionIcon(online ? R.drawable.c_ic_ethernet : R.drawable.c_ic_ethernet_off,
-                    getString(online ? R.string.c_ethernet : R.string.c_no_internet));
-            return;
-        }
-        if (!online) {
-            setConnectionIcon(R.drawable.c_ic_wifi_off, getString(R.string.c_no_internet));
-            return;
-        }
-        WifiManager wm = getApplicationContext().getSystemService(WifiManager.class);
-        WifiInfo info = wm != null ? wm.getConnectionInfo() : null;
-        int bars = info != null ? WifiManager.calculateSignalLevel(info.getRssi(), WIFI_ICONS.length) : 0;
-        setConnectionIcon(WIFI_ICONS[bars], getString(R.string.c_wifi));
+    private boolean openOnStartAfterBoot() {
+        String app = cfg.openOnStartChoice ? getSharedPreferences(Config.SETTINGS_NAME, MODE_PRIVATE)
+                .getString(OpenOnStart.KEY, "") : "";
+        if (!cfg.bootToLiveTv && app.isEmpty()) return false;
+        int boot = OpenOnStart.boot(this);
+        SharedPreferences prefs = getSharedPreferences(OpenOnStart.BOOT_PREFS, MODE_PRIVATE);
+        String liveTv = cfg.liveTvPackage == null ? "" : cfg.liveTvPackage;
+        String target = cfg.bootToLiveTv ? liveTv : app;
+        if (!OpenOnStart.due(boot, prefs.getInt(OpenOnStart.BOOT_KEY, -1), target, getPackageName())) return false;
+        if (!prefs.edit().putInt(OpenOnStart.BOOT_KEY, boot).commit()) return false;
+        Intent i = cfg.bootToLiveTv ? (liveTv.isEmpty() ? null : getPackageManager().getLeanbackLaunchIntentForPackage(liveTv))
+                : OpenOnStart.intent(getPackageManager(), app);
+        if (i == null) return false;
+        open(i);
+        return true;
     }
 
-    private void setConnectionIcon(int icon, String description) {
-        btnWifi.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0);
-        btnWifi.setContentDescription(description);
+    // ---- idle clock (launcher settings, home_idle_clock_minutes): the clock screen after a while without a key --------
+
+    private final Runnable showIdleClock = () -> startActivity(new Intent(this, ClockActivity.class));
+
+    void onUserInteraction() {
+        restartIdleClock();
     }
+
+    private void restartIdleClock() {
+        root.removeCallbacks(showIdleClock);
+        if (cfg.homeIdleClockMinutes > 0) root.postDelayed(showIdleClock, cfg.homeIdleClockMinutes * MINUTE_MS);
+    }
+
+    private void updateHeader() {
+        header.update();
+    }
+
     private void open(Intent i) {
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
@@ -772,11 +769,11 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
 
     /** Dropdown menu under the Inputs pill: HDMI ports (with connection state), AV and Live TV. */
     private void showInputs() {
-        View anchor = findViewById(R.id.btnSettings);
+        View anchor = findViewById(R.id.btnInputs);
         View panel = getLayoutInflater().inflate(R.layout.c_popup_inputs, root, false);
         LinearLayout rows = panel.findViewById(R.id.rows);
 
-        // Compact, hanging right below the Settings button with its right edge lined up to it.
+        // Compact, hanging right below the Inputs pill with its left edge lined up to it.
         int width = (int) (170 * density);
         final PopupWindow popup = new PopupWindow(panel, width, ViewGroup.LayoutParams.WRAP_CONTENT, true);
         popup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));   // needed for Back to dismiss
@@ -824,8 +821,8 @@ final class ClassicHome extends ContextWrapper implements ClassicAdapter.TileLis
         panel.setPivotY(0f);
         panel.setScaleY(0.92f);
         panel.setTranslationY(-8 * density);
-        popup.showAsDropDown(anchor, anchor.getWidth() - width, (int) (10 * density), Gravity.START);
-        panel.animate().alpha(1f).scaleY(1f).translationY(0f).setDuration(220)
+        popup.showAsDropDown(anchor, 0, (int) (10 * density), Gravity.START);
+        panel.animate().alpha(1f).scaleY(1f).translationY(0f).setDuration(ms(220))
                 .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
         rows.getChildAt(0).requestFocus();
     }

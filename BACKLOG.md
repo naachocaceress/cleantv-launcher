@@ -22,7 +22,8 @@ Lo que falta por hacer en CleanTV Launcher y en las TV box.
 - Volvieron los temas **Dock** y **Círculos** (Mosaicos es el de upstream), **mover apps**, los **fondos de Wikimedia** (ahora
   dentro de la colección de fondos de upstream) y el **panel de ajustes lateral**, también para los ajustes largos de upstream.
 - **Tamaño de los íconos del dock**: pequeño (el de siempre), mediano y grande.
-- **Reordenar apps** en el panel (Dock, Círculos y Mosaicos), y el código viejo del tema Mosaicos fuera de `ClassicHome`.
+- Código viejo del tema Mosaicos fuera de `ClassicHome`.
+- **Mismo encabezado y mismos ajustes en los tres temas** (`home_header.xml`, `HomeHeader`, página de ajustes del launcher, animaciones, reloj de inactividad, abrir app al encender); se quitaron del panel las filas Reordenar apps y Entradas.
 - **Salvapantallas con tus fotos** (`PhotoDream`) usando la colección de fondos, y el banner a densidad xhdpi en Dock y Círculos.
 - **Medición** (ZTE B866V2): arranque en frío 3,1 s con el launcher viejo contra 2,4 s en Mosaicos y 2,2 s en Dock y Círculos; memoria 55 MB contra 28 a 38 MB.
 - `tools/sync-upstream.ps1` (merge de upstream más limpieza más tests y lint) y un CI propio en GitHub.

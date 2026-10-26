@@ -27,13 +27,26 @@ temas, biblioteca de apps, tarjetas de módulos y teclas del control vienen de a
 - En Dock, *Ajustes → Tamaño de los íconos del dock* elige entre **pequeño** (el de siempre, hasta 8 apps), **mediano** (hasta 7) y
   **grande** (hasta 6): cuanto más grandes los íconos, menos caben a lo ancho. Todo el launcher usa la tipografía de Mosaicos (Outfit).
 
+### Lo mismo en los tres temas
+
+Cambiar de tema solo cambia la zona de las apps; todo lo que la rodea es igual:
+
+- **El encabezado** (saludo, hora, fecha y los botones Entradas, red y Ajustes) es el de Mosaicos, con el mismo archivo de
+  diseño (`home_header.xml`), las mismas reglas del saludo y la red, y la misma configuración (`greeting_name`,
+  `icon_only_buttons`, `show_network_pill`, `show_inputs_pill`...). Dock y Círculos lo arman con `HomeHeader`.
+- **Los ajustes largos del launcher** (Ajustes → Más ajustes del launcher) valen para los tres: animaciones, fondo, "abrir una
+  app al encender", volver al tema y el inicio predeterminado. Las opciones que son del diseño de Mosaicos (apps por fila,
+  filas bajo el dock, opacidad del dock, efectos avanzados) solo aparecen en Mosaicos.
+- **Animaciones** apagadas: el dock, los menús y el nombre del dock aparecen de golpe, también en Dock y Círculos.
+- **El reloj de inactividad** (`home_idle_clock_minutes`), "abrir una app al encender" y el cambio de fondo funcionan igual.
+- **El fondo** (colección del tema, fotos de Wikimedia, franja horaria, oscurecimiento) lo dibuja el mismo motor.
+
 ### Panel de ajustes lateral
 
 El botón **Ajustes** abre un panel sobre el borde derecho, con el inicio atenuado detrás, en los tres temas: *Tema*,
-*Fondo de pantalla*, *Reordenar apps*, *Tamaño de los íconos del dock* (solo en Dock), *Más ajustes del launcher* (Mosaicos) y *Ajustes de Android*, más
-*Entradas* si el TV las tiene. Mantener OK en el botón sigue abriendo el menú de upstream (módulos, ajustes del TV...). Los
-ajustes largos de upstream (apps por fila, filas bajo el dock, animaciones, fondo) también se ven como panel lateral y no
-a pantalla completa.
+*Fondo de pantalla*, *Tamaño de los íconos del dock* (solo en Dock), *Más ajustes del launcher* y *Ajustes de Android*.
+Mantener OK en una app (o en el botón Ajustes de Mosaicos) sigue abriendo sus menús: mover, fijar, información. El orden se
+cambia ahí, no en el panel. Los ajustes largos de upstream también se ven como panel lateral y no a pantalla completa.
 
 ### Fondos de pantalla de Wikimedia
 

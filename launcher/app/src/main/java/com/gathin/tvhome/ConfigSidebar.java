@@ -1,13 +1,12 @@
 package com.gathin.tvhome;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.media.tv.TvInputInfo;
-import android.media.tv.TvInputManager;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -25,7 +24,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The settings sidebar: a panel on the right edge with a few big buttons. Theme and Wallpaper open their own screen
+ * The settings sidebar: a panel on the right edge. Its first screen has the launcher options themselves (layout,
+ * animations, reset...) next to Theme and Wallpaper, which open their own screen
  * inside the panel (Back returns to the buttons), and Android settings opens the system
  * settings directly. Shared by the Dock and Circles themes ({@link ClassicHome}) and the Tiles home
  * ({@link MainActivity}); each one tells it what to do through {@link Host}.
@@ -40,6 +40,9 @@ final class ConfigSidebar {
     static final String SCREEN_MENU = "menu", SCREEN_WALLPAPER = "wallpaper", SCREEN_DOCK_SIZE = "dock_size";
     /** Set by a change that rebuilds Home so the rebuilt Home opens the panel again on that screen (null: do not). */
     static String reopen;
+    /** With {@link #reopen} on the menu: the row to focus, so a cycled option stays under the cursor (-1: the first). */
+    static int reopenRow = -1;
+    private static final int[] COLUMNS = {4, 5, 6, 7}, ROWS_BELOW = {0, 1, 2, 3}, DOCK_OPACITIES = {100, 70, 50, 30};
 
     interface Host {
         /** The theme was picked: save it and rebuild Home. */
@@ -47,16 +50,6 @@ final class ConfigSidebar {
 
         /** A wallpaper or the dock size changed: rebuild Home so it reads the settings again. */
         void onRebuild();
-
-
-        /** Starts moving the app in focus, or null when this home cannot. */
-        Runnable reorder();
-
-        /** The Inputs dropdown, or null when this home has none. */
-        Runnable inputs();
-
-        /** The longer list of launcher options (upstream's own settings page), or null. */
-        Runnable moreSettings();
     }
 
     private final Activity act;
@@ -64,7 +57,6 @@ final class ConfigSidebar {
     private final Host host;
     private final WallpaperStore wallpapers;
     private final SharedPreferences choices;
-    private final String liveTvPkg;
     private final float density;
 
     ConfigSidebar(Activity act, Host host) {
@@ -73,7 +65,6 @@ final class ConfigSidebar {
         this.host = host;
         wallpapers = new WallpaperStore(act);
         choices = act.getSharedPreferences(Config.SETTINGS_NAME, Context.MODE_PRIVATE);
-        liveTvPkg = act.getString(R.string.live_tv_package).trim();
         density = act.getResources().getDisplayMetrics().density;
     }
 
@@ -169,24 +160,13 @@ final class ConfigSidebar {
             addRow(rows, dialog, R.drawable.c_ic_theme, act.getString(R.string.c_menu_theme), false, false, themeScreen);
             addRow(rows, dialog, R.drawable.c_ic_wallpaper, act.getString(R.string.c_menu_wallpaper), false, false,
                     wallpaperScreen[0]);
-            Runnable reorder = host.reorder();
-            if (reorder != null) {
-                addRow(rows, dialog, R.drawable.c_ic_move, act.getString(R.string.c_menu_reorder), false, true, reorder);
-            }
             if (THEME_DOCK.equals(current)) {   // the size of the dock icons only exists in the Dock theme
                 addRow(rows, dialog, R.drawable.c_ic_theme, act.getString(R.string.c_menu_dock_size), false, false,
                         dockSizeScreen);
             }
-            Runnable more = host.moreSettings();
-            if (more != null) {
-                addRow(rows, dialog, R.drawable.c_ic_settings, act.getString(R.string.c_menu_more), false, true, more);
-            }
+            addLauncherOptions(rows, dialog);
             addRow(rows, dialog, R.drawable.c_ic_settings, act.getString(R.string.c_menu_android), false, true,
                     () -> open(new Intent(Settings.ACTION_SETTINGS)));
-            Runnable inputs = host.inputs();
-            if (inputs != null && hasInputs()) {   // boxes without HDMI/AV inputs or a tuner don't get this one
-                addRow(rows, dialog, R.drawable.c_ic_input, act.getString(R.string.c_inputs), false, true, inputs);
-            }
             rows.getChildAt(0).requestFocus();
         };
         if (SCREEN_WALLPAPER.equals(firstScreen)) wallpaperScreen[0].run();
@@ -208,15 +188,119 @@ final class ConfigSidebar {
             w.setDimAmount(0.45f);
         }
         dialog.show();
-        rows.getChildAt(Math.min(rows.getChildCount() - 1, SCREEN_MENU.equals(firstScreen) ? 0 : 1)).requestFocus();
+        int focus = SCREEN_MENU.equals(firstScreen) ? Math.max(0, reopenRow) : 1;
+        reopenRow = -1;
+        rows.getChildAt(Math.min(rows.getChildCount() - 1, focus)).requestFocus();
     }
 
-    private boolean hasInputs() {
-        TvInputManager tim = (TvInputManager) act.getSystemService(Context.TV_INPUT_SERVICE);
-        if (tim != null) {
-            for (TvInputInfo info : tim.getTvInputList()) if (info.isPassthroughInput()) return true;
+    // ---- the launcher's own options, straight on the first screen (no second page) ----
+
+    /** Layout, animations, open on start and the reset; each click saves at once and rebuilds Home with the panel back. */
+    private void addLauncherOptions(LinearLayout rows, Dialog dialog) {
+        final Config cfg = Config.load(ctx);
+        if (THEME_TILES.equals(theme(ctx))) {   // the Tiles layout; Dock and Circles have no use for these
+            addOption(rows, dialog, optionText(R.string.columns_label, String.valueOf(cfg.columns)), () ->
+                    choices.edit().putInt("columns", next(COLUMNS, cfg.columns)).apply());
+            addOption(rows, dialog, optionText(R.string.rows_below_dock_label, String.valueOf(cfg.rowsBelowDock)), () ->
+                    choices.edit().putInt(Config.ROWS_BELOW_DOCK_KEY, next(ROWS_BELOW, cfg.rowsBelowDock)).apply());
+            addOption(rows, dialog, optionText(R.string.dock_opacity_label, cfg.dockOpacity + "%"), () ->
+                    choices.edit().putInt(Config.DOCK_OPACITY_KEY, next(DOCK_OPACITIES, cfg.dockOpacity)).apply());
         }
-        return !liveTvPkg.isEmpty() && act.getPackageManager().getLeanbackLaunchIntentForPackage(liveTvPkg) != null;
+        addOption(rows, dialog, act.getString(R.string.animations_state, onOff(cfg.animations)), () ->
+                choices.edit().putBoolean("animations", !cfg.animations).putBoolean("advanced_effects", false).apply());
+        if (THEME_TILES.equals(theme(ctx))) {   // tile lift and icon zoom are the Tiles home's
+            final boolean advanced = cfg.animations && cfg.advancedEffects;
+            View row = addOption(rows, dialog, act.getString(R.string.advanced_effects_state, onOff(advanced)),
+                    () -> choices.edit().putBoolean("advanced_effects", !advanced).apply(),
+                    cfg.animations ? () -> !advanced : null);
+            row.setEnabled(cfg.animations);
+            row.setAlpha(cfg.animations ? 1f : 0.5f);
+        }
+        if (cfg.openOnStartChoice) {
+            final TextView[] title = new TextView[1];
+            View row = addRow(rows, dialog, R.drawable.c_ic_settings,
+                    act.getString(R.string.open_on_start_state, OpenOnStart.label(ctx, choices)), false, false,
+                    () -> OpenOnStart.pick(act, choices, () -> title[0].setText(
+                            act.getString(R.string.open_on_start_state, OpenOnStart.label(ctx, choices)))));
+            title[0] = row.findViewById(R.id.title);
+        }
+        final boolean follows = !hasOnTvChoices(choices);
+        final int at = rows.getChildCount();
+        addRow(rows, dialog, R.drawable.c_ic_settings, act.getString(R.string.c_follow_theme), follows, false, () -> {
+            if (follows) return;
+            resetChoices(choices);
+            rebuild(at);
+        });
+        addRow(rows, dialog, R.drawable.c_ic_settings, act.getString(R.string.home_settings), false, true, () -> {
+            Toast.makeText(act, R.string.home_settings_help, Toast.LENGTH_LONG).show();
+            open(new Intent(Settings.ACTION_HOME_SETTINGS));
+        });
+    }
+
+    private View addOption(LinearLayout rows, Dialog dialog, String text, Runnable change) {
+        return addOption(rows, dialog, text, change, null);
+    }
+
+    /** An option row: a click runs {@code change} (which saves), then Home rebuilds and the panel returns on this row.
+     *  {@code confirm}, when given and true, asks first because the change has a cost (the effects warning). */
+    private View addOption(LinearLayout rows, Dialog dialog, String text, Runnable change,
+                           java.util.function.BooleanSupplier confirm) {
+        final int at = rows.getChildCount();
+        return addRow(rows, dialog, R.drawable.c_ic_settings, text, false, false, () -> {
+            if (confirm != null && confirm.getAsBoolean()) {
+                new AlertDialog.Builder(act)
+                        .setTitle(R.string.advanced_effects)
+                        .setMessage(R.string.advanced_effects_warning)
+                        .setPositiveButton(R.string.enable, (d, which) -> {
+                            change.run();
+                            rebuild(at);
+                        })
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+                return;
+            }
+            change.run();
+            rebuild(at);
+        });
+    }
+
+    /** Home reads the settings again; the panel comes back on the menu with row {@code at} focused. */
+    private void rebuild(int at) {
+        bumpRevision();
+        reopen = SCREEN_MENU;
+        reopenRow = at;
+        host.onRebuild();
+    }
+
+    private String optionText(int label, String value) {
+        return act.getString(label) + ": " + value;
+    }
+
+    private String onOff(boolean on) {
+        return act.getString(on ? R.string.on : R.string.off);
+    }
+
+    /** The value after {@code current} in the list, wrapping around (the first when it is not in the list). */
+    private static int next(int[] values, int current) {
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] == current) return values[(i + 1) % values.length];
+        }
+        return values[0];
+    }
+
+    /** Whether any of the choices made on the TV is saved (they override the theme's own values). */
+    static boolean hasOnTvChoices(SharedPreferences choices) {
+        return choices.contains("columns") || choices.contains(Config.ROWS_BELOW_DOCK_KEY)
+                || choices.contains("animations") || choices.contains("advanced_effects")
+                || choices.contains(Config.WALLPAPER_CHOICE_KEY) || choices.contains(Config.DOCK_OPACITY_KEY)
+                || choices.contains(OpenOnStart.KEY);
+    }
+
+    /** Forget every choice made on the TV, so the theme's (or the built-in) values apply again. */
+    static void resetChoices(SharedPreferences choices) {
+        choices.edit().remove("columns").remove(Config.ROWS_BELOW_DOCK_KEY).remove("animations")
+                .remove("advanced_effects").remove(Config.WALLPAPER_CHOICE_KEY)
+                .remove(Config.DOCK_OPACITY_KEY).remove(OpenOnStart.KEY).commit();
     }
 
     /** A row in the sidebar; a dot marks the selected one. iconRes 0 means no icon. */

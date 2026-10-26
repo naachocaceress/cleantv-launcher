@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Base language: Spanish. English is in values-en. The TV's own language picks which one is shown. -->
 <resources>
-    <string name="c_app_name">CleanTV</string>
-    <string name="c_inputs">Entradas</string>
-    <string name="c_wifi">Wi-Fi</string>
-    <string name="c_settings">Ajustes</string>
     <string name="c_connected">Conectado</string>
     <string name="c_not_connected">Sin dispositivo</string>
     <string name="c_live_tv">TV en vivo</string>
@@ -13,9 +9,6 @@
     <string name="c_good_afternoon">Buenas tardes</string>
     <string name="c_good_evening">Buenas noches</string>
     <string name="c_good_night">Buenas noches</string>
-    <string name="c_ethernet">Ethernet</string>
-    <string name="c_offline">Sin conexión</string>
-    <string name="c_no_internet">Sin internet</string>
     <string name="c_your_apps">Tus apps</string>
 
     <string name="c_pin_to_dock">Fijar en el dock</string>
@@ -48,12 +41,10 @@
     <string name="c_wallpaper_searching">Buscando un fondo…</string>
     <string name="c_wallpaper_failed">No se pudo descargar un fondo. Revisa la conexión a internet.</string>
     <string name="c_wallpaper_have_all">Ya descargaste todos los fondos del catálogo.</string>
-    <string name="c_menu_more">Más ajustes del launcher</string>
+    <string name="c_follow_theme">Restablecer al tema</string>
     <string name="c_menu_dock_size">Tamaño de los íconos del dock</string>
     <string name="c_size_small">Pequeño</string>
     <string name="c_size_medium">Mediano</string>
     <string name="c_size_large">Grande</string>
-    <string name="c_menu_reorder">Reordenar apps</string>
-    <string name="c_move_pick">Primero poné el foco en una app del dock y después elegí Reordenar apps.</string>
     <string name="c_screensaver_label">Fotos del launcher</string>
 </resources>

@@ -26,12 +26,26 @@ themes, the app library, module cards and the remote-key helpers all come from t
 - In Dock, *Settings → Dock icon size* picks **small** (the original, up to 8 apps), **medium** (up to 7) or **large** (up to 6):
   the bigger the icons, the fewer fit across. The whole launcher uses the Tiles typeface (Outfit).
 
+### The same in the three themes
+
+Changing theme only changes the area of the apps; everything around it is the same:
+
+- **The header** (greeting, clock, date and the Inputs, network and Settings buttons) is the Tiles one, from the same layout
+  file (`home_header.xml`), with the same greeting and network rules and the same config (`greeting_name`, `icon_only_buttons`,
+  `show_network_pill`, `show_inputs_pill`...). Dock and Circles build it with `HomeHeader`.
+- **The long launcher settings** (Settings → More launcher settings) apply to all three: animations, wallpaper, "open an app
+  on start", follow theme and the default home. The options that belong to the Tiles layout (apps per row, rows below the
+  dock, dock opacity, advanced effects) only show in Tiles.
+- **Animations** off: the dock, the menus and the dock's name appear at once, in Dock and Circles too.
+- **The idle clock** (`home_idle_clock_minutes`) and "open an app on start" work the same.
+- **The wallpaper** (the theme's collection, Wikimedia pictures, time of day, dimming) is drawn by the same engine.
+
 ### Settings sidebar
 
-The **Settings** button opens a panel on the right edge with Home dimmed behind it, in all three themes: *Theme*,
-*Wallpaper*, *Reorder apps*, *Dock icon size* (Dock only), *More launcher settings* (Tiles) and *Android settings*, plus *Inputs* when the
-TV has them. Holding OK on the button still opens upstream's menu (modules, TV settings...). Upstream's long settings page
-(apps per row, rows below the dock, animations, wallpaper) is also a side panel instead of a full screen.
+The **Settings** button opens a panel on the right edge with Home dimmed behind it, in all three themes: *Theme*, *Wallpaper*,
+*Dock icon size* (Dock only), *More launcher settings* and *Android settings*. Holding OK on an app (or on Tiles' Settings
+button) still opens its menus: move, pin, info. The order is changed there, not in the panel. Upstream's long settings page is
+also a side panel instead of a full screen.
 
 ### Wikimedia wallpapers
 
